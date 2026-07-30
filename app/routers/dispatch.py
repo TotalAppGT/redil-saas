@@ -310,6 +310,22 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             db.commit()
             return {"ok": True}
 
+        if action == "changePassword":
+            import re
+            email = payload.get("email", "")
+            old_password = payload.get("old_password", "")
+            new_password = payload.get("new_password", "")
+            if not all([email, old_password, new_password]):
+                return {"ok": False, "msg": "Todos los campos son requeridos"}
+            if len(new_password) < 8 or not re.search(r"[A-Z]", new_password) or not re.search(r"[a-z]", new_password) or not re.search(r"\d", new_password):
+                return {"ok": False, "msg": "La contraseña debe tener al menos 8 caracteres, una mayúscula, una minúscula y un número"}
+            user = db.query(Usuario).filter(Usuario.email == email).first()
+            if not user or not bcrypt.checkpw(old_password.encode(), user.password.encode()):
+                return {"ok": False, "msg": "Contraseña actual incorrecta"}
+            user.password = bcrypt.hashpw(new_password.encode(), bcrypt.gensalt()).decode()
+            db.commit()
+            return {"ok": True, "msg": "Contraseña actualizada"}
+
         if action == "inicializarSistema":
             return {"ok": True, "msg": "Sistema listo. Configura tu bot de Telegram en Config."}
 

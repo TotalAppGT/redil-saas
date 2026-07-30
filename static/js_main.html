@@ -3483,6 +3483,41 @@ function renderConfiguracion(el){
     </div>
   </div>
 
+  <!-- SEGURIDAD -->
+  <div class="cfg-section">
+    <div class="cfg-section-title"><i class="fas fa-shield-alt"></i> Seguridad</div>
+    <p style="font-size:13px;color:var(--tx2);margin-bottom:12px">Cambia tu contraseña y gestiona la seguridad de tu cuenta.</p>
+    <div style="background:var(--bg3);border-radius:8px;padding:14px;margin-bottom:12px">
+      <div style="font-weight:700;font-size:13px;margin-bottom:10px"><i class="fas fa-key" style="color:var(--pr)"></i> Cambiar Contraseña</div>
+      <div class="fgg" style="margin-bottom:10px">
+        <label>Contraseña Actual</label>
+        <input class="fc" type="password" id="cfgOldPass" placeholder="Ingresa tu contraseña actual">
+      </div>
+      <div class="fg2" style="margin-bottom:10px">
+        <div class="fgg">
+          <label>Nueva Contraseña</label>
+          <input class="fc" type="password" id="cfgNewPass" placeholder="Mínimo 8 caracteres" oninput="checkPasswordStrength(this.value)">
+          <div id="passStrengthBar" style="height:4px;border-radius:2px;margin-top:4px;background:var(--brd);transition:all .3s"></div>
+          <div id="passStrengthText" style="font-size:10px;color:var(--tx3);margin-top:2px"></div>
+        </div>
+        <div class="fgg">
+          <label>Confirmar Nueva Contraseña</label>
+          <input class="fc" type="password" id="cfgConfirmPass" placeholder="Repite la nueva contraseña">
+        </div>
+      </div>
+      <button class="btn btn-pr btn-sm" onclick="cambiarPassword()"><i class="fas fa-save"></i> Actualizar Contraseña</button>
+    </div>
+    <div style="background:rgba(232,160,32,.08);border-radius:8px;padding:10px 12px;border-left:3px solid var(--ac);font-size:12px">
+      <b style="color:var(--ac)"><i class="fas fa-info-circle"></i> Requisitos de contraseña:</b>
+      <ul style="margin:6px 0 0 18px;color:var(--tx2)">
+        <li>Mínimo 8 caracteres</li>
+        <li>Al menos una letra mayúscula</li>
+        <li>Al menos una letra minúscula</li>
+        <li>Al menos un número</li>
+      </ul>
+    </div>
+  </div>
+
   <!-- ASISTENTE IA -->
   <div class="cfg-section">
     <div class="cfg-section-title">
@@ -3839,6 +3874,53 @@ function selectThemePreset(id){
   var sel=document.getElementById('cfgThemePreset');if(sel)sel.value=id;
   onThemePresetChange();
   vistaPreviaTema();
+}
+
+function checkPasswordStrength(pass){
+  var bar=document.getElementById('passStrengthBar');
+  var txt=document.getElementById('passStrengthText');
+  if(!bar||!txt)return;
+  if(!pass){bar.style.width='0';bar.style.background='var(--brd)';txt.textContent='';return;}
+  var strength=0;
+  if(pass.length>=8)strength++;
+  if(pass.length>=12)strength++;
+  if(/[A-Z]/.test(pass))strength++;
+  if(/[a-z]/.test(pass))strength++;
+  if(/\d/.test(pass))strength++;
+  if(/[^A-Za-z0-9]/.test(pass))strength++;
+  var colors=['#e74c3c','#e74c3c','#e8a020','#e8a020','#27ae60','#27ae60','#27ae60'];
+  var labels=['','Muy débil','Débil','Regular','Buena','Fuerte','Muy fuerte'];
+  var pct=Math.min(100,(strength/6)*100);
+  bar.style.width=pct+'%';
+  bar.style.background=colors[strength]||'var(--brd)';
+  txt.textContent=labels[strength]||'';
+  txt.style.color=colors[strength]||'var(--tx3)';
+}
+
+function cambiarPassword(){
+  var oldPass=g('cfgOldPass');
+  var newPass=g('cfgNewPass');
+  var confirmPass=g('cfgConfirmPass');
+  if(!oldPass||!newPass||!confirmPass){toast('Completa todos los campos','wa');return;}
+  if(newPass!==confirmPass){toast('Las contraseñas no coinciden','er');return;}
+  if(newPass.length<8){toast('La contraseña debe tener al menos 8 caracteres','wa');return;}
+  if(!/[A-Z]/.test(newPass)||!/[a-z]/.test(newPass)||!/\d/.test(newPass)){
+    toast('La contraseña debe tener mayúsculas, minúsculas y números','wa');return;
+  }
+  loading(true);
+  call('changePassword',{
+    email:APP.user.email,
+    old_password:oldPass,
+    new_password:newPass
+  },function(err,res){
+    loading(false);
+    if(err||!res||!res.ok){toast('Error: '+((res&&res.msg)||'No se pudo cambiar'),'er');return;}
+    toast('Contraseña actualizada correctamente','ok');
+    document.getElementById('cfgOldPass').value='';
+    document.getElementById('cfgNewPass').value='';
+    document.getElementById('cfgConfirmPass').value='';
+    checkPasswordStrength('');
+  });
 }
 
 function guardarConfig(){
