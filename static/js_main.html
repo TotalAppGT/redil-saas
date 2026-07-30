@@ -2897,9 +2897,19 @@ function setRolDef(rol){const perms=ROL_DEF_MENU[rol]||ROL_DEF_MENU['Solo Lectur
 function getChkPerms(){return ALL_MENU.map(m=>m.id).filter(id=>{const c=document.querySelector(`[name="perm_${id}"]`);return c&&c.checked;});}
 function newUsr(){openModal('Nuevo Usuario',usrForm(),"<button class=\"btn btn-ol\" onclick=\"closeModal()\">Cancelar</button><button class=\"btn btn-pr\" onclick=\"saveUsr()\"><i class=\"fas fa-save\"></i> Guardar</button>",'lg');}
 function editUsr(id){
-  _editUsrId = id;
-  const u=_usr.find(x=>x['ID']===id);
-  openModal('Editar Usuario',usrForm(u),"<button class=\"btn btn-ol\" onclick=\"closeModal()\">Cancelar</button><button class=\"btn btn-pr\" onclick=\"saveUsr()\"><i class=\"fas fa-save\"></i> Actualizar</button>",'lg');
+  try {
+    _editUsrId = id;
+    const u=_usr.find(x=>x['ID']===id);
+    if(!u){
+      toast('Usuario no encontrado', 'er');
+      return;
+    }
+    console.log('Editando usuario:', u);
+    openModal('Editar Usuario', usrForm(u), "<button class=\"btn btn-ol\" onclick=\"closeModal()\">Cancelar</button><button class=\"btn btn-pr\" onclick=\"saveUsr()\"><i class=\"fas fa-save\"></i> Actualizar</button>", 'lg');
+  } catch(e) {
+    console.error('Error en editUsr:', e);
+    toast('Error al editar usuario: ' + e.message, 'er');
+  }
 }
 function saveUsr(){
   const id = g('uf_id') || _editUsrId || '';

@@ -72,15 +72,21 @@ def get_user_from_token(token: str, db: Session):
 
 def make_user_response(u):
     gas_role = DB_TO_GAS_ROLE.get(u.rol, 'Solo Lectura')
-    default_menu = list(ROL_DEFAULT_MENU.get(gas_role, ROL_DEFAULT_MENU['Solo Lectura']))
-    saved_menu = default_menu
+    
+    # Si el usuario tiene un menú guardado, usar SOLO ese menú
+    # Si no tiene menú guardado, usar el menú por defecto de su rol
     if u.menu_permitido:
         try:
-            saved_menu = json.loads(u.menu_permitido) if isinstance(u.menu_permitido, str) else u.menu_permitido
+            menu = json.loads(u.menu_permitido) if isinstance(u.menu_permitido, str) else u.menu_permitido
+            # Asegurar que siempre tenga al menos dashboard
+            if 'dashboard' not in menu:
+                menu.insert(0, 'dashboard')
         except:
-            pass
-    merged = list(dict.fromkeys(saved_menu + default_menu))
-    return {"id": u.id, "nombre": u.nombre, "email": u.email, "rol": gas_role, "menu": merged, "isPropietario": u.rol == "propietario", "puedeVerBitacora": u.puede_ver_bitacora if hasattr(u, 'puede_ver_bitacora') else True, "PuedeEditar": "SI" if u.rol in ("propietario", "admin") else "NO", "inactMin": 60}
+            menu = list(ROL_DEFAULT_MENU.get(gas_role, ROL_DEFAULT_MENU['Solo Lectura']))
+    else:
+        menu = list(ROL_DEFAULT_MENU.get(gas_role, ROL_DEFAULT_MENU['Solo Lectura']))
+    
+    return {"id": u.id, "nombre": u.nombre, "email": u.email, "rol": gas_role, "menu": menu, "isPropietario": u.rol == "propietario", "puedeVerBitacora": u.puede_ver_bitacora if hasattr(u, 'puede_ver_bitacora') else True, "PuedeEditar": "SI" if u.rol in ("propietario", "admin") else "NO", "inactMin": 60}
 
 def gas_to_db(gas_key, field_map):
     return field_map.get(gas_key)
