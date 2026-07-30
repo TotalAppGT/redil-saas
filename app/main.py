@@ -14,12 +14,19 @@ Base.metadata.create_all(bind=engine)
 try:
     from sqlalchemy import inspect, text
     inspector = inspect(engine)
-    cols = [c["name"] for c in inspector.get_columns("usuarios")]
+    cols_u = [c["name"] for c in inspector.get_columns("usuarios")]
+    cols_r = [c["name"] for c in inspector.get_columns("reportes")]
     with engine.connect() as conn:
-        if "menu_permitido" not in cols:
+        if "menu_permitido" not in cols_u:
             conn.execute(text("ALTER TABLE usuarios ADD COLUMN menu_permitido TEXT"))
-        if "puede_ver_bitacora" not in cols:
+        if "puede_ver_bitacora" not in cols_u:
             conn.execute(text("ALTER TABLE usuarios ADD COLUMN puede_ver_bitacora BOOLEAN DEFAULT TRUE"))
+        for col in ["hora_inicio","hora_final","ofrenda_iglesia","ofrenda_bus","martes","jueves","domingo","otros","total_cultos","reporte_origen","sup_sector","sup_area","pastor_zona","anfitrion","seguimientos_count"]:
+            if col not in cols_r:
+                t = "INTEGER DEFAULT 0" if col in ("martes","jueves","domingo","otros","total_cultos","seguimientos_count") else "NUMERIC(12,2) DEFAULT 0" if col in ("ofrenda_iglesia","ofrenda_bus") else "VARCHAR(200) DEFAULT ''"
+                conn.execute(text(f"ALTER TABLE reportes ADD COLUMN {col} {t}"))
+        if "direccion" not in cols_r:
+            conn.execute(text("ALTER TABLE reportes ADD COLUMN direccion TEXT DEFAULT ''"))
         conn.commit()
 except Exception as e:
     print(f"⚠️ Migración: {e}")

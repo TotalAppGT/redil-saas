@@ -109,7 +109,7 @@ textarea{resize:none;line-height:1.5}
   <!-- HEADER -->
   <div class="hdr" id="mainHdr">
     <div id="logoWrap" style="width:56px;height:56px;border-radius:50%;overflow:hidden;border:2.5px solid rgba(255,255,255,.4);margin:0 auto 10px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:22px">⛪</div>
-    <h1 id="hdrTitle"><?= APP_NAME ?></h1>
+    <h1 id="hdrTitle">Cargando...</h1>
     <p>Formulario de Reporte de Grupo Familiar</p>
     <div class="hdr-badge">📱 Formulario Digital</div>
     <div style="margin-top:10px;font-size:10px;opacity:.7;border-top:1px solid rgba(255,255,255,.15);padding-top:8px;display:flex;align-items:center;justify-content:center;gap:6px">
@@ -367,21 +367,26 @@ let _lastData={};
 let segIdx=1;
 const MAX_SEG=10;
 
+function call(action,payload,cb){
+  payload=payload||{};
+  fetch(window.location.origin+'/api/dispatch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:action,payload:payload,token:''})})
+    .then(function(r){return r.json();})
+    .then(function(r){if(cb)cb(null,r);})
+    .catch(function(e){if(cb)cb(e,null);});
+}
+
 // Cargar logo y nombre desde config del sistema
-google.script.run
-  .withSuccessHandler(function(cfg){
-    if(!cfg||!cfg.ok) return;
-    if(cfg.logoUrl){
-      const lw=document.getElementById('logoWrap');
-      if(lw) lw.innerHTML=`<img src="${cfg.logoUrl}" style="width:100%;height:100%;object-fit:cover" alt="Logo">`;
-    }
-    if(cfg.nombre){
-      const ht=document.getElementById('hdrTitle');
-      if(ht) ht.textContent=cfg.nombre;
-    }
-  })
-  .withFailureHandler(function(){})
-  .dispatch('getConfig',{});
+call('getConfig',{},function(err,cfg){
+  if(err||!cfg||!cfg.ok) return;
+  if(cfg.logoUrl){
+    const lw=document.getElementById('logoWrap');
+    if(lw) lw.innerHTML=`<img src="${cfg.logoUrl}" style="width:100%;height:100%;object-fit:cover" alt="Logo">`;
+  }
+  if(cfg.nombre){
+    const ht=document.getElementById('hdrTitle');
+    if(ht) ht.textContent=cfg.nombre;
+  }
+});
 
 // Fecha hoy
 document.getElementById('fecha').value=new Date().toISOString().split('T')[0];
@@ -433,26 +438,19 @@ function buscarLider(){
   btn.disabled=true;
   document.getElementById('liderInfo').style.display='none';
   document.getElementById('liderNotFound').style.display='none';
-  google.script.run
-    .withSuccessHandler(function(res){
-      btn.disabled=false;
-      // buscarLiderFormulario devuelve {ok:true, data:{...}} o {ok:false}
-      if(res&&res.ok&&res.data){
-        liderData=res.data;
-        // Actualizar el campo de código con el código real de la tabla de hermanos
-        document.getElementById('codigo').value=res.data['CodigoL']||'';
-        document.getElementById('lNom').textContent='✓ '+res.data['NombreL']+' ('+res.data['CodigoL']+')';
-        document.getElementById('lDet').textContent='Sector: '+(res.data['Sup SectorL']||'—')+' · Área: '+(res.data['Sup AreaL']||'—')+' · Pastor Zona: '+(res.data['Pastor Zona']||'—');
-        document.getElementById('liderInfo').style.display='block';
-      } else {
-        document.getElementById('liderNotFound').style.display='block';
-      }
-    })
-    .withFailureHandler(function(){
-      btn.disabled=false;
+  call('buscarLiderFormulario',{query:query},function(err,res){
+    btn.disabled=false;
+    if(err){document.getElementById('liderNotFound').style.display='block';return;}
+    if(res&&res.ok&&res.data){
+      liderData=res.data;
+      document.getElementById('codigo').value=res.data['CodigoL']||'';
+      document.getElementById('lNom').textContent='✓ '+res.data['NombreL']+' ('+res.data['CodigoL']+')';
+      document.getElementById('lDet').textContent='Sector: '+(res.data['Sup SectorL']||'—')+' · Área: '+(res.data['Sup AreaL']||'—')+' · Pastor Zona: '+(res.data['Pastor Zona']||'—');
+      document.getElementById('liderInfo').style.display='block';
+    } else {
       document.getElementById('liderNotFound').style.display='block';
-    })
-    .buscarLiderFormulario(query);
+    }
+  });
 }
 
 function num(id){return parseInt(document.getElementById(id).value)||0;}
@@ -519,22 +517,17 @@ function enviar(e){
   _lastData.nombre10=document.getElementById('nombre10')?.value||'';
   _lastData.tipo10=document.getElementById('tipo10')?.value||'';
 
-  google.script.run
-    .withSuccessHandler(function(res){
-      btn.disabled=false;spinner.style.display='none';btnTxt.textContent='📤 ENVIAR REPORTE';
-      if(res==='OK'||res?.ok){
-        document.getElementById('frm').style.display='none';
-        document.querySelector('.hdr').style.background='linear-gradient(135deg,#8b6914 0%,#d68910 100%)';
-        mostrarExito();
-      } else {
-        notify('Error al enviar: '+(res||'Error desconocido'),'er');
-      }
-    })
-    .withFailureHandler(function(err){
-      btn.disabled=false;spinner.style.display='none';btnTxt.textContent='📤 ENVIAR REPORTE';
-      notify('Error de conexión: '+err.message,'er');
-    })
-    .registrarReporte(_lastData);
+  call('registrarReporteDigital',_lastData,function(err,res){
+    btn.disabled=false;spinner.style.display='none';btnTxt.textContent='📤 ENVIAR REPORTE';
+    if(err){notify('Error de conexión: '+err.message,'er');return;}
+    if(res&&res.ok){
+      document.getElementById('frm').style.display='none';
+      document.querySelector('.hdr').style.background='linear-gradient(135deg,#8b6914 0%,#d68910 100%)';
+      mostrarExito();
+    } else {
+      notify('Error al enviar: '+(res&&res.msg||'Error desconocido'),'er');
+    }
+  });
 }
 
 function mostrarExito(){

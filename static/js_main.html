@@ -137,8 +137,10 @@ function aplicarNombreSistema(nombre){
   if(!APP.config)APP.config={};APP.config.nombre=nombre;
 }
 
-var _actTimer=null;
-function resetActivityTimer(){if(_actTimer)clearTimeout(_actTimer);_actTimer=setTimeout(function(){logout(true);},getInactMin()*60*1000);}
+var _actTimer=null, _actListenersSet=false;
+function resetActivityTimer(){if(_actTimer)clearTimeout(_actTimer);if(!APP.user)return;_actTimer=setTimeout(function(){logout(true);},getInactMin()*60*1000);}
+function setupActivityTracking(){if(_actListenersSet)return;_actListenersSet=true;['click','keydown','mousemove','touchstart','scroll'].forEach(function(ev){document.addEventListener(ev,resetActivityTimer,{passive:true});});}
+setupActivityTracking();
 
 function handleLogin(e){
   if(e)e.preventDefault();
@@ -2882,7 +2884,7 @@ function usrForm(u){
   </div>`;
 }
 function chkAll(v){document.querySelectorAll('.perm-check').forEach(c=>c.checked=v);}
-const ROL_DEF_MENU={'Admin':ALL_MENU.filter(m=>m.id!=='configuracion').map(m=>m.id),'Líder':['dashboard','reportes','reporteDigital','formulario','seguimientos'],'Secretario':['dashboard','reportes','reporteDigital','generador','seguimientos','envio','contactos'],'Tesorero':['dashboard','reportes','diezmos','generador','envio'],'Digitador':['dashboard','reportes','envio','contactos'],'Auditor':['dashboard','reportes','generador'],'Servicio':['inventario','insumos'],'Solo Lectura':['dashboard','reportes']};
+const ROL_DEF_MENU={'Admin':ALL_MENU.map(m=>m.id),'Líder':['dashboard','reportes','reporteDigital','formulario','seguimientos'],'Secretario':['dashboard','reportes','reporteDigital','generador','seguimientos','envio','contactos'],'Tesorero':['dashboard','reportes','diezmos','generador','envio'],'Digitador':['dashboard','reportes','envio','contactos'],'Auditor':['dashboard','reportes','generador'],'Servicio':['inventario','insumos'],'Solo Lectura':['dashboard','reportes']};
 function setRolDef(rol){const perms=ROL_DEF_MENU[rol]||ROL_DEF_MENU['Solo Lectura'];document.querySelectorAll('.perm-check').forEach(c=>{const mod=c.name.replace('perm_','');c.checked=perms.includes(mod);});}
 function getChkPerms(){return ALL_MENU.map(m=>m.id).filter(id=>{const c=document.querySelector(`[name="perm_${id}"]`);return c&&c.checked;});}
 function newUsr(){openModal('Nuevo Usuario',usrForm(),"<button class=\"btn btn-ol\" onclick=\"closeModal()\">Cancelar</button><button class=\"btn btn-pr\" onclick=\"saveUsr()\"><i class=\"fas fa-save\"></i> Guardar</button>",'lg');}
@@ -3592,6 +3594,19 @@ function renderConfiguracion(el){
     <div id="conexStatus"></div>
   </div>
 
+  <!-- CORREO ELECTRÓNICO (SMTP) -->
+  <div class="cfg-section">
+    <div class="cfg-section-title"><i class="fas fa-envelope"></i> Correo Electrónico (SMTP)</div>
+    <p style="font-size:13px;color:var(--tx2);margin-bottom:10px">Configuración para enviar correos desde el sistema. Usa Gmail con una Contraseña de Aplicación.</p>
+    <div class="fg2">
+      <div class="fgg"><label>Usuario SMTP (correo)</label><input class="fc" id="cfgSmtpUser" value="${esc(cfg.smtp_user||'totalappgt@gmail.com')}"></div>
+      <div class="fgg"><label>Contraseña SMTP (App Password)</label><input class="fc" type="password" id="cfgSmtpPassword" value="${esc(cfg.smtp_password||'')}" placeholder="App Password de Gmail"></div>
+      <div class="fgg" style="display:flex;flex-direction:column;justify-content:flex-end;gap:8px">
+        <button class="btn btn-pr" onclick="probarCorreo()"><i class="fas fa-paper-plane"></i> Probar Envío</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TEMA / PALETA DE COLORES -->
   <div class="cfg-section">
     <div class="cfg-section-title"><i class="fas fa-palette"></i> Tema del Sistema</div>
@@ -3861,6 +3876,8 @@ function guardarConfig(){
     pdf_id:g('cfgPdfId')||'',
     bot_pdf_folder_id:g('cfgBotPdfFolderId')||'',
     theme_colors:serializeTema(),
+    smtp_user:g('cfgSmtpUser')||'totalappgt@gmail.com',
+    smtp_password:g('cfgSmtpPassword')||'',
   };
   // Claves individuales módulos
   ALL_MENU.forEach(m=>{if(m.id!=='dashboard'&&m.id!=='configuracion')data['menu_mod_'+m.id]=_menuState[m.id]===false?'NO':'SI';});
@@ -3885,6 +3902,7 @@ function guardarConfig(){
 function getMenuConfigFromState(){const mc={};ALL_MENU.forEach(m=>{if(m.id!=='dashboard')mc[m.id]=_menuState[m.id]!==false;});return mc;}
 
 function probarConexion(){const el=document.getElementById('conexStatus');if(!el)return;el.innerHTML='<p style="font-size:13px;color:var(--inf)"><i class="fas fa-circle-notch fa-spin"></i> Probando...</p>';call('inicializarSistema',{},(_,res)=>{if(res && res.ok)el.innerHTML=`<div style="padding:10px;background:rgba(39,174,96,.1);border-radius:8px;border-left:3px solid var(--ok);font-size:13px;color:var(--ok)"><i class="fas fa-check-circle"></i> <b>Conexión exitosa.</b> ${esc(res.msg)}</div>`;else el.innerHTML=`<div style="padding:10px;background:rgba(231,76,60,.1);border-radius:8px;border-left:3px solid var(--err);font-size:13px;color:var(--err)"><i class="fas fa-times-circle"></i> <b>Error:</b> ${esc(res && res.msg ? res.msg : '')}</div>`;});}
+function probarCorreo(){call('enviarReporte',{destinatarios:g('cfgSmtpUser')||'totalappgt@gmail.com',asunto:'Prueba - REDIL',cuerpo:'<p>Este es un correo de prueba desde el Sistema REDIL.</p>'},function(_,res){if(res&&res.ok)toast('Correo de prueba enviado correctamente','ok',5000);else toast('Error: '+(res&&res.msg||'Error al enviar'),'er',6000);});}
 function inicializar(){customConfirm('¿Está seguro de inicializar las hojas base? Los datos existentes NO se borrarán.',function(ok){if(!ok)return;loading(true);call('inicializarSistema',{},(_,res)=>{loading(false);if(res && res.ok)toast(res.msg,'ok',5000);else toast('Error: '+(res && res.msg ? res.msg : ''),'er');});},{icon:'fa-database'});}
 
 
