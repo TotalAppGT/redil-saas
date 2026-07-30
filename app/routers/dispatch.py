@@ -750,6 +750,163 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                 sup_map[area].append(db_to_gas(s, SUPERVISOR_MAP))
             return {"ok": True, "data": sup_map}
 
+        if action == "generarReporte":
+            desde = payload.get("desde", "")
+            hasta = payload.get("hasta", "")
+            lider = payload.get("lider", "")
+            sup_sector = payload.get("supSector", "")
+            sup_area = payload.get("supArea", "")
+            pastor_zona = payload.get("pastorZona", "")
+            distrito = payload.get("distrito", "")
+            zona = payload.get("zona", "")
+            tipo = payload.get("tipo", "Reporte de Grupos")
+            no_guardar = payload.get("_noGuardar", False)
+
+            q = db.query(Reporte)
+            if desde: q = q.filter(Reporte.fecha >= desde)
+            if hasta: q = q.filter(Reporte.fecha <= hasta)
+            if lider: q = q.filter(Reporte.lider.ilike(f"%{lider}%"))
+            if sup_sector: q = q.filter(Reporte.sup_sector == sup_sector)
+            if sup_area: q = q.filter(Reporte.sup_area == sup_area)
+            if pastor_zona: q = q.filter(Reporte.pastor_zona == pastor_zona)
+            if distrito: q = q.filter(Reporte.distrito == distrito)
+            if zona: q = q.filter(Reporte.zona == zona)
+
+            reportes = q.order_by(Reporte.fecha.desc(), Reporte.distrito, Reporte.zona).all()
+            if not reportes:
+                return {"ok": False, "msg": "No se encontraron reportes con los filtros seleccionados"}
+
+            total_grupos = len(reportes)
+            total_asist = sum(r.asistencia or 0 for r in reportes)
+            total_hnos = sum(r.hnos or 0 for r in reportes)
+            total_amigos = sum(r.amigos or 0 for r in reportes)
+            total_ninos = sum(r.ninos or 0 for r in reportes)
+            total_ofrenda = sum(float(r.ofrenda_total or 0) for r in reportes)
+            total_pendientes = sum(1 for r in reportes if r.ofrenda_recibida in ("Pendiente", ""))
+            total_recibidas = total_grupos - total_pendientes
+
+            sys_nom = ""
+            try:
+                cfg = db.query(Configuracion).filter(Configuracion.clave == "nombre").first()
+                if cfg: sys_nom = cfg.valor
+            except: pass
+
+            no_serie = f"RPT-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+            fecha_gen = datetime.now().strftime('%d/%m/%Y %I:%M %p')
+            rango_str = f"{desde or 'Inicio'} → {hasta or 'Hoy'}"
+
+            rows_html = ""
+            for r in reportes:
+                pend = r.ofrenda_recibida in ("Pendiente", "")
+                of_val = float(r.ofrenda_total or 0)
+                rows_html += f"""<tr>
+                    <td><span class="cod">{esc(r.codigo or '')}</span></td>
+                    <td><b>{esc(r.lider or '')}</b></td>
+                    <td>{esc(str(r.fecha) if r.fecha else '')}</td>
+                    <td>D{r.distrito or '?'} Z{r.zona or '?'}</td>
+                    <td class="num">{r.asistencia or 0}</td>
+                    <td class="num">Q{of_val:.2f}</td>
+                    <td class="{'pend' if pend else 'ok'}">{'⏳ Pendiente' if pend else '✓ Recibida'}</td>
+                </tr>"""
+
+            estado_pct = round(total_recibidas / total_grupos * 100, 1) if total_grupos else 0
+
+            html = f"""<!DOCTYPE html><html lang="es"><head><meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>{esc(sys_nom or 'REDIL')} — {esc(tipo)}</title>
+            <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+            <style>
+            *{{margin:0;padding:0;box-sizing:border-box}}
+            body{{font-family:'Inter',sans-serif;background:#f0f4f8;color:#1e2d3d;padding:20px}}
+            .rpt{{max-width:1200px;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.08);overflow:hidden}}
+            .hdr{{background:linear-gradient(135deg,#1a3a5c,#2563a8);color:#fff;padding:24px 28px}}
+            .hdr-top{{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px}}
+            .hdr h1{{font-size:22px;font-weight:900;letter-spacing:-.3px}}
+            .hdr .sub{{font-size:12px;opacity:.75;margin-top:4px}}
+            .hdr .badge{{background:rgba(255,255,255,.15);padding:4px 14px;border-radius:99px;font-size:11px;font-weight:700}}
+            .hdr .rango{{font-size:13px;opacity:.85;margin-top:8px;font-weight:600}}
+            .kpis{{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;padding:20px 28px;background:#f8faff;border-bottom:1px solid #e8edf3}}
+            .kpi{{background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.04);border-left:3px solid var(--kc,#1a3a5c)}}
+            .kpi .v{{font-size:22px;font-weight:900;color:#1a3a5c;line-height:1}}
+            .kpi .l{{font-size:11px;color:#6b7a8a;margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}}
+            .kpi.o{{--kc:#e8a020}} .kpi.g{{--kc:#27ae60}} .kpi.r{{--kc:#e74c3c}} .kpi.p{{--kc:#8e44ad}} .kpi.t{{--kc:#0e6655}}
+            .tw{{overflow-x:auto}}
+            table{{width:100%;border-collapse:collapse;font-size:13px}}
+            thead th{{background:#f0f4ff;color:#1a3a5c;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:12px 14px;text-align:left;border-bottom:2px solid #d1dbe8;position:sticky;top:0;white-space:nowrap}}
+            tbody td{{padding:10px 14px;border-bottom:1px solid #e8edf3;vertical-align:middle}}
+            tbody tr:hover{{background:#f8faff}}
+            tbody tr:nth-child(even){{background:#fafcff}}
+            .cod{{font-family:monospace;font-size:12px;background:#eef2f7;padding:2px 7px;border-radius:4px;color:#1a3a5c}}
+            .num{{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}}
+            .pend{{color:#e74c3c;font-weight:700;font-size:12px}}
+            .ok{{color:#27ae60;font-weight:700;font-size:12px}}
+            .footer{{padding:16px 28px;border-top:1px solid #e8edf3;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;font-size:12px;color:#6b7a8a}}
+            .footer-brand{{display:flex;align-items:center;gap:10px}}
+            .footer-brand img{{width:22px;height:22px;border-radius:5px;object-fit:cover;border:1px solid #e0e5ed}}
+            .footer-brand .name{{font-size:13px;font-weight:800;color:#1a3a5c;line-height:1.1}}
+            .footer-brand .tag{{font-size:9px;font-weight:700;color:#9aaab8;letter-spacing:.3px}}
+            @media print{{body{{padding:0;background:#fff}}.rpt{{box-shadow:none;border-radius:0}}.kpis{{break-inside:avoid}}thead th{{background:#f0f4ff!important;-webkit-print-color-adjust:exact}}}}
+            </style></head><body>
+            <div class="rpt">
+                <div class="hdr">
+                    <div class="hdr-top">
+                        <div><h1>{esc(sys_nom or 'REDIL')}</h1><div class="sub">{esc(tipo)}</div></div>
+                        <div><span class="badge">📅 {rango_str}</span></div>
+                    </div>
+                    <div class="rango">📊 {total_grupos} grupos · 🕒 {fecha_gen}</div>
+                </div>
+                <div class="kpis">
+                    <div class="kpi"><div class="v">{total_grupos}</div><div class="l">Grupos</div></div>
+                    <div class="kpi o"><div class="v">{total_asist}</div><div class="l">Asistencia Total</div></div>
+                    <div class="kpi g"><div class="v">Q{total_ofrenda:.2f}</div><div class="l">Ofrenda Total</div></div>
+                    <div class="kpi p"><div class="v">{total_hnos}</div><div class="l">Hermanos</div></div>
+                    <div class="kpi t"><div class="v">{total_amigos}</div><div class="l">Amigos</div></div>
+                    <div class="kpi"><div class="v">{total_ninos}</div><div class="l">Niños</div></div>
+                    <div class="kpi r"><div class="v">{total_pendientes}</div><div class="l">Pendientes</div></div>
+                    <div class="kpi g"><div class="v">{estado_pct}%</div><div class="l">Recibidas</div></div>
+                </div>
+                <div class="tw">
+                    <table>
+                        <thead><tr><th>Código</th><th>Líder</th><th>Fecha</th><th>D-Z</th><th class="num">AGF</th><th class="num">Ofrenda</th><th>Estado</th></tr></thead>
+                        <tbody>{rows_html}</tbody>
+                    </table>
+                </div>
+                <div class="footer">
+                    <div>Total: {total_grupos} grupos · Q{total_ofrenda:.2f}</div>
+                    <div class="footer-brand">
+                        <div><div class="name">Daniel Martínez</div><div class="tag">Total App GT</div></div>
+                    </div>
+                </div>
+            </div>
+            </body></html>"""
+
+            result = {"ok": True, "html": html, "noSerie": no_serie}
+            return result
+
+        if action == "guardarPdfAction":
+            html_content = payload.get("html", "")
+            no_serie = payload.get("noSerie", f"PDF-{datetime.now().strftime('%Y%m%d-%H%M%S')}")
+            if not html_content:
+                return {"ok": False, "msg": "No hay contenido HTML para convertir"}
+
+            try:
+                from weasyprint import HTML as WeasyHTML
+                pdf_bytes = WeasyHTML(string=html_content).write_pdf()
+            except Exception as e:
+                return {"ok": False, "msg": f"Error generando PDF: {str(e)}"}
+
+            try:
+                cfg = {}
+                for c in db.query(Configuracion).all(): cfg[c.clave] = c.valor
+                folder_id = cfg.get("driveFolderId", "")
+                if not folder_id:
+                    return {"ok": True, "html": html_content, "noSerie": no_serie, "msg": "PDF generado localmente. Configura DriveFolderId para guardar en Drive."}
+                from app.drive_utils import upload_pdf
+                pdf_result = upload_pdf(pdf_bytes, f"{no_serie}.pdf", folder_id)
+                return {"ok": True, "html": html_content, "noSerie": no_serie, "pdfUrl": pdf_result["url"]}
+            except Exception as e:
+                return {"ok": False, "msg": f"Error guardando PDF: {str(e)}"}
+
         return {"ok": False, "msg": f"Acción '{action}' no implementada en API"}
 
     except Exception as e:

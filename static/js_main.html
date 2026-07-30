@@ -378,28 +378,24 @@ function renderDashboard(el){
   </div>
   <!-- KPIs -->
   <div class="sg" id="dashStats">${Array(9).fill('<div class="sc"><div class="g-spinner" style="width:18px;height:18px;border-width:3px"></div></div>').join('')}</div>
-  <!-- GRÁFICAS fila 1 -->
+  <!-- GRÁFICAS -->
   <div class="dg" style="grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px" id="dashRow1">
-    <div class="dc" id="dc_asist"><div class="dct dct-o"><i class="fas fa-users"></i> Asistencia &amp; Ofrendas <span id="dashRangoLbl" style="font-size:10px;color:var(--tx3);margin-left:6px"></span><button class="btn btn-ol btn-sm" style="margin-left:auto;font-size:10px;padding:3px 8px" onclick="imprimirGrafica('chAsist','Asistencia y Ofrendas')"><i class="fas fa-print"></i></button></div><div class="chart-area"><canvas id="chAsist"></canvas></div></div>
-    <div class="dc" id="dc_grupos"><div class="dct dct-g" id="titleGruposMeta"><i class="fas fa-home"></i> Grupos Realizados vs Meta <button class="btn btn-ol btn-sm" style="margin-left:auto;font-size:10px;padding:3px 8px" onclick="imprimirGrafica('chGrupos','Grupos vs Meta')"><i class="fas fa-print"></i></button></div><div class="chart-area"><canvas id="chGrupos"></canvas></div></div>
+    <div class="dc" id="dc_asist"><div class="dct dct-o"><i class="fas fa-chart-bar"></i> Asistencia &amp; Ofrendas <span id="dashRangoLbl" style="font-size:10px;color:var(--tx3);margin-left:6px"></span></div><div class="chart-area"><canvas id="chAsist"></canvas></div></div>
+    <div class="dc" id="dc_grupos"><div class="dct dct-g"><i class="fas fa-layer-group"></i> Grupos vs Meta <button class="btn btn-ol btn-sm" style="margin-left:auto;font-size:10px;padding:3px 8px" onclick="imprimirGrafica('chGrupos','Grupos vs Meta')"><i class="fas fa-print"></i></button></div><div class="chart-area"><canvas id="chGrupos"></canvas></div></div>
   </div>
-  <!-- GRÁFICAS fila 2 -->
   <div class="dg" style="grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px" id="dashRow2">
-    <div class="dc" id="dc_conv"><div class="dct dct-p"><i class="fas fa-heart"></i> Convertidos &amp; Reconciliados <button class="btn btn-ol btn-sm" style="margin-left:auto;font-size:10px;padding:3px 8px" onclick="imprimirGrafica('chConv','Convertidos y Reconciliados')"><i class="fas fa-print"></i></button></div><div class="chart-area"><canvas id="chConv"></canvas></div></div>
-    <div class="dc" id="dc_tipo"><div class="dct dct-i"><i class="fas fa-mobile-alt"></i> Reportes Manuales vs Digitales <button class="btn btn-ol btn-sm" style="margin-left:auto;font-size:10px;padding:3px 8px" onclick="imprimirGrafica('chTipo','Manuales vs Digitales')"><i class="fas fa-print"></i></button></div><div class="chart-area"><canvas id="chTipo"></canvas></div></div>
-    <div class="dc" id="dc_seg"><div class="dct dct-t"><i class="fas fa-tasks"></i> Seguimientos por Estado <button class="btn btn-ol btn-sm" style="margin-left:auto;font-size:10px;padding:3px 8px" onclick="imprimirGrafica('chSeg','Seguimientos')"><i class="fas fa-print"></i></button></div><div class="chart-area" style="min-height:180px"><canvas id="chSeg"></canvas></div></div>
+    <div class="dc" id="dc_conv"><div class="dct dct-p"><i class="fas fa-heart"></i> Convertidos &amp; Reconciliados</div><div class="chart-area"><canvas id="chConv"></canvas></div></div>
+    <div class="dc" id="dc_tipo"><div class="dct dct-i"><i class="fas fa-mobile-alt"></i> Manuales vs Digitales</div><div class="chart-area"><canvas id="chTipo"></canvas></div></div>
+    <div class="dc" id="dc_seg"><div class="dct dct-t"><i class="fas fa-tasks"></i> Seguimientos</div><div class="chart-area" style="min-height:180px"><canvas id="chSeg"></canvas></div></div>
   </div>
-  <!-- GRÁFICAS fila 3 -->
   <div class="dg" style="grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px" id="dashRow3">
-    <div class="dc" id="dc_distAsist"><div class="dct dct-o"><i class="fas fa-map-marker-alt"></i> Asistencia por Distrito <button class="btn btn-ol btn-sm" style="margin-left:auto;font-size:10px;padding:3px 8px" onclick="imprimirGrafica('chDistAsist','Asistencia por Distrito')"><i class="fas fa-print"></i></button></div><div class="chart-area"><canvas id="chDistAsist"></canvas></div></div>
-    <div class="dc" id="dc_distHnos"><div class="dct dct-g"><i class="fas fa-users"></i> Hermanos por Distrito <button class="btn btn-ol btn-sm" style="margin-left:auto;font-size:10px;padding:3px 8px" onclick="imprimirGrafica('chDistHnos','Hermanos por Distrito')"><i class="fas fa-print"></i></button></div><div class="chart-area"><canvas id="chDistHnos"></canvas></div></div>
-    <div class="dc" id="dc_reuniones"><div class="dct dct-p"><i class="fas fa-church"></i> Tipo de Reunión por Mes <button class="btn btn-ol btn-sm" style="margin-left:auto;font-size:10px;padding:3px 8px" onclick="imprimirGrafica('chReuniones','Tipo de Reunión por Mes')"><i class="fas fa-print"></i></button></div><div class="chart-area"><canvas id="chReuniones"></canvas></div></div>
+    <div class="dc" id="dc_distAsist"><div class="dct dct-o"><i class="fas fa-map-marker-alt"></i> Asistencia por Distrito</div><div class="chart-area"><canvas id="chDistAsist"></canvas></div></div>
+    <div class="dc" id="dc_distHnos"><div class="dct dct-g"><i class="fas fa-users"></i> Hermanos por Distrito</div><div class="chart-area"><canvas id="chDistHnos"></canvas></div></div>
+    <div class="dc" id="dc_reuniones"><div class="dct dct-p"><i class="fas fa-church"></i> Tipo de Reunión</div><div class="chart-area"><canvas id="chReuniones"></canvas></div></div>
   </div>
-  <!-- GRÁFICAS fila 4 -->
   <div class="dg" style="grid-template-columns:1fr 1fr 1fr;gap:14px;margin-bottom:14px" id="dashRow4">
-    <div class="dc" id="dc_stock"><div class="dct dct-r"><i class="fas fa-exclamation-triangle" style="color:var(--err)"></i> Stock Bajo <button class="btn btn-ol btn-sm" style="margin-left:auto;font-size:10px;padding:3px 8px" onclick="nav('insumos')"><i class="fas fa-external-link-alt"></i></button></div><div id="dashStock"><div class="empty-r"><i class="fas fa-circle-notch fa-spin"></i></div></div></div>
+    <div class="dc" id="dc_stock"><div class="dct dct-r"><i class="fas fa-exclamation-triangle"></i> Stock Bajo</div><div id="dashStock"><div class="empty-r"><i class="fas fa-circle-notch fa-spin"></i></div></div></div>
   </div>
-  <!-- RECIENTES + CRONOGRAMA -->
   <div class="dg" style="grid-template-columns:1fr 1fr 1fr;gap:14px">
     <div class="dc"><div class="dct dct-p"><i class="fas fa-clock"></i> Últimos Reportes</div><div id="dashRec"><div class="empty-r"><i class="fas fa-circle-notch fa-spin"></i></div></div></div>
     <div class="dc"><div class="dct dct-i"><i class="fas fa-hands-helping"></i> Últimos Seguimientos</div><div id="dashSeg"><div class="empty-r"><i class="fas fa-circle-notch fa-spin"></i></div></div></div>
@@ -459,9 +455,9 @@ function buildDashKPIs(d){
     {l:'Asistencia',v:d.asistencia,i:'fa-users',c:'g'},
     {l:'Ofrenda',v:fmtQ(d.ofTotal),i:'fa-hand-holding-usd',c:'p'},
     {l:'Convertidos',v:d.convertidos||0,i:'fa-heart',c:'i'},
-    {l:'Reconciliados',v:d.reconciliados||0,i:'fa-pray',c:'t'},
+    {l:'Reconciliados',v:d.reconciliados||0,i:'fa-handshake',c:'t'},
     {l:'Seguimientos',v:d.segTotal||0,i:'fa-tasks',c:'p'},
-    {l:'⚠ Ofrenda Pend.',v:d.pendientes||0,i:'fa-exclamation-triangle',c:'r'},
+    {l:'Pendientes',v:d.pendientes||0,i:'fa-exclamation-triangle',c:'r'},
     {l:'Cronogramas',v:(d.proxCron||[]).length,i:'fa-calendar-alt',c:'t'},
   ].map(s=>`<div class="sc ${s.c}"><div class="sc-ico"><i class="fas ${s.i}"></i></div><div class="sc-v">${s.v}</div><div class="sc-l">${s.l}</div></div>`).join('');
 }
