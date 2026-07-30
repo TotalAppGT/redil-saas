@@ -16,6 +16,7 @@ try:
     inspector = inspect(engine)
     cols_u = [c["name"] for c in inspector.get_columns("usuarios")]
     cols_r = [c["name"] for c in inspector.get_columns("reportes")]
+    cols_g = [c["name"] for c in inspector.get_columns("gastos")]
     with engine.connect() as conn:
         if "menu_permitido" not in cols_u:
             conn.execute(text("ALTER TABLE usuarios ADD COLUMN menu_permitido TEXT"))
@@ -27,6 +28,23 @@ try:
                 conn.execute(text(f"ALTER TABLE reportes ADD COLUMN {col} {t}"))
         if "direccion" not in cols_r:
             conn.execute(text("ALTER TABLE reportes ADD COLUMN direccion TEXT DEFAULT ''"))
+        if "evento" not in cols_g:
+            conn.execute(text("ALTER TABLE gastos ADD COLUMN evento VARCHAR(200) DEFAULT ''"))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS bautizos (
+                id SERIAL PRIMARY KEY,
+                fecha DATE,
+                nombre VARCHAR(200),
+                edad INTEGER DEFAULT 0,
+                telefono VARCHAR(50),
+                direccion TEXT,
+                pastor_oficiante VARCHAR(200),
+                lugar VARCHAR(200),
+                observaciones TEXT,
+                activo BOOLEAN DEFAULT TRUE,
+                timestamp TIMESTAMP DEFAULT NOW()
+            )
+        """))
         conn.commit()
 except Exception as e:
     print(f"⚠️ Migración: {e}")

@@ -145,6 +145,7 @@ class Gasto(Base):
     __tablename__ = "gastos"
     id = Column(Integer, primary_key=True, index=True)
     concepto = Column(String(200))
+    evento = Column(String(200))
     monto = Column(Numeric(12, 2), default=0)
     fecha = Column(Date)
     categoria = Column(String(100))
@@ -191,6 +192,20 @@ class Privilegio(Base):
     fecha_fin = Column(Date)
     activo = Column(Boolean, default=True)
     observaciones = Column(Text)
+
+class Bautizo(Base):
+    __tablename__ = "bautizos"
+    id = Column(Integer, primary_key=True, index=True)
+    fecha = Column(Date, index=True)
+    nombre = Column(String(200))
+    edad = Column(Integer, default=0)
+    telefono = Column(String(50))
+    direccion = Column(Text)
+    pastor_oficiante = Column(String(200))
+    lugar = Column(String(200))
+    observaciones = Column(Text)
+    activo = Column(Boolean, default=True)
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
 
 class Cronograma(Base):
     __tablename__ = "cronograma"

@@ -28,9 +28,10 @@ var TITLES = {
   contactos: 'Tabla de Contactos',
   usuarios: 'Usuarios',
   bitacora: 'Bitácora de Accesos',
-  configuracion: 'Configuración',
-  cronograma: 'Cronograma'
-};
+   configuracion: 'Configuración',
+   cronograma: 'Cronograma',
+   bautizos: 'Bautizos en Agua'
+ };
 
 function saveSession(token,user,inactMin){[localStorage,sessionStorage].forEach(function(s){try{s.setItem(SESSION_KEY,token);s.setItem(SESSION_USER_KEY,JSON.stringify(user));s.setItem(SESSION_TIME_KEY,Date.now().toString());s.setItem('ir_inact_min',String(inactMin||60));}catch(e){}});}
 function getToken(){return localStorage.getItem(SESSION_KEY)||sessionStorage.getItem(SESSION_KEY);}
@@ -304,6 +305,7 @@ var ALL_MENU=[
   {id:'insumos',label:'Insumos',icon:'fa-spray-can',section:'RECURSOS'},
   {id:'envio',label:'Centro de Envios',icon:'fa-paper-plane',section:'COMUNICACIONES'},
   {id:'contactos',label:'Tabla de Contactos',icon:'fa-address-book',section:'COMUNICACIONES'},
+  {id:'bautizos',label:'Bautizos en Agua',icon:'fa-water',section:'GESTION'},
   {id:'cuadre',label:'Cuadre Dominical',icon:'fa-calculator',section:'FINANZAS'},
   {id:'usuarios',label:'Usuarios',icon:'fa-user-cog',section:'ADMIN'},
   {id:'bitacora',label:'Bitacora Accesos',icon:'fa-clipboard-list',section:'ADMIN'},
@@ -3888,6 +3890,7 @@ function guardarConfig(){
       toast('✓ Configuración guardada','ok');
       APP.config=Object.assign(APP.config||{},data,{servicios_dinamicos:svcs});
       var nombre=g('cfgNombre');if(nombre)aplicarNombreSistema(nombre);
+      var lk=localStorage.getItem(LOGO_KEY);if(lk)applyLogoToUI(lk);
       buildSidebarMenu(APP.user.menu,APP.user.isPropietario);
       applyGlobalMenuConfig(getMenuConfigFromState(),APP.user.isPropietario);
       var _bEl=document.getElementById('aiBot');
@@ -4379,7 +4382,70 @@ function delSeg(id){
   customConfirm('¿Eliminar este seguimiento?',function(ok){if(!ok)return;loading(true);call('deleteSeguimiento',{id: id},function(_,res){loading(false);if(res&&res.ok){toast('Eliminado','ok');loadSegs();}else toast('Error','er');});},{icon:'fa-trash-alt',danger:true});
 }
 function renderCronograma(el){renderPrivilegios(el);setTimeout(function(){switchPrvTab('cron');},400);}
-var RENDERS={dashboard:renderDashboard,reportes:renderReportes,reporteDigital:renderReporteDigital,formulario:renderFormulario,generador:renderGenerador,hermanos:renderHermanos,cargaMasiva:renderCargaMasiva,supervisores:renderSupervisores,pastores:renderPastores,ayudapastor:renderAyudaPastor,seguimientos:renderSeguimientos,privilegios:renderPrivilegios,cronograma:renderCronograma,diezmos:renderDiezmos,gastos:renderGastos,inventario:renderInventario,insumos:renderInsumos,envio:renderEnvio,contactos:renderContactos,cuadre:renderCuadre,usuarios:renderUsuarios,bitacora:renderBitacora,configuracion:renderConfiguracion};
+
+// ══════════════════════════════════════════════════════════
+// BAUTIZOS EN AGUA
+// ══════════════════════════════════════════════════════════
+var _bautizosData=[];
+function renderBautizos(el){
+  el.innerHTML=`<div class="mod-hdr"><h2><i class="fas fa-water"></i> Bautizos en Agua</h2><div class="mod-acts"><button class="btn btn-ok btn-sm" onclick="newBautizo()"><i class="fas fa-plus"></i> Nuevo</button><button class="btn btn-in btn-sm" onclick="exportXLS(_bautizosData,'Bautizos','bautizos')"><i class="fas fa-file-excel"></i> Excel</button></div></div>
+  <div class="card" style="padding:0;overflow:hidden"><div style="overflow-x:auto"><table id="bautTb" style="min-width:900px;width:100%"><thead><tr>
+    <th>ID</th><th>Fecha</th><th>Nombre</th><th>Edad</th><th>Teléfono</th><th>Pastor</th><th>Lugar</th><th>Activo</th><th>Acción</th>
+  </tr></thead><tbody></tbody></table></div></div>`;
+  loadBautizos();
+}
+function loadBautizos(){
+  loading(true);
+  call('getBautizos',{},function(_,res){
+    loading(false);
+    if(!res){toast('Error cargando bautizos','er');return;}
+    _bautizosData=Array.isArray(res)?res:(res&&res.data?res.data:(res&&res.bautizos?res.bautizos:[]));
+    var tb=document.getElementById('bautTb');if(!tb)return;
+    var tbody=tb.querySelector('tbody');if(!tbody)return;
+    if(!_bautizosData.length){tbody.innerHTML='<tr><td colspan="9"><div class="empty-r"><p>Sin bautizos registrados</p></div></td></tr>';return;}
+    tbody.innerHTML=_bautizosData.map(function(b){return '<tr>'+
+      '<td><b>'+esc(b.ID||b.id||'')+'</b></td>'+
+      '<td>'+esc(b.Fecha||b.fecha||'')+'</td>'+
+      '<td><b>'+esc(b.Nombre||b.nombre||'')+'</b></td>'+
+      '<td>'+esc(b.Edad||b.edad||'')+'</td>'+
+      '<td>'+esc(b.Telefono||b.telefono||'')+'</td>'+
+      '<td>'+esc(b.PastorOficiante||b.pastor_oficiante||'')+'</td>'+
+      '<td>'+esc(b.Lugar||b.lugar||'')+'</td>'+
+      '<td>'+(b.Activo===false||b.activo===false?'<span class="bdg br">No</span>':'<span class="bdg bg">Sí</span>')+'</td>'+
+      '<td><div class="ab"><button class="ab-btn ab-ed" onclick="editBautizo('+(b.ID||b.id)+')"><i class="fas fa-edit"></i></button><button class="ab-btn ab-del" onclick="delBautizo('+(b.ID||b.id)+')"><i class="fas fa-trash"></i></button></div></td></tr>';}).join('');
+  });
+}
+function bautForm(d){
+  d=d||{};
+  return '<div class="f2c">'+
+    '<div class="fgg"><label>Fecha del Bautizo</label><input class="fc" id="b_fecha" type="date" value="'+(d.Fecha||d.fecha||today())+'"></div>'+
+    '<div class="fgg"><label>Nombre Completo <span class="req">*</span></label><input class="fc" id="b_nombre" value="'+(d.Nombre||d.nombre||'')+'" placeholder="Nombre del bautizado"></div>'+
+    '<div class="row2"><div class="fgg"><label>Edad</label><input class="fc" id="b_edad" type="number" value="'+(d.Edad||d.edad||'')+'" min="0"></div>'+
+    '<div class="fgg"><label>Teléfono</label><input class="fc" id="b_telefono" value="'+(d.Telefono||d.telefono||'')+'" placeholder="Número de contacto"></div></div>'+
+    '<div class="fgg"><label>Dirección</label><input class="fc" id="b_direccion" value="'+(d.Direccion||d.direccion||'')+'" placeholder="Dirección de residencia"></div>'+
+    '<div class="row2"><div class="fgg"><label>Pastor Oficiante</label><input class="fc" id="b_pastor" value="'+(d.PastorOficiante||d.pastor_oficiante||'')+'" placeholder="Pastor que bautizó"></div>'+
+    '<div class="fgg"><label>Lugar del Bautizo</label><input class="fc" id="b_lugar" value="'+(d.Lugar||d.lugar||'')+'" placeholder="Ej: Iglesia Central"></div></div>'+
+    '<div class="fgg"><label>Observaciones</label><textarea class="fc" id="b_obs" rows="2">'+(d.Observaciones||d.observaciones||'')+'</textarea></div>'+
+    '<div class="fgg"><label class="chk"><input type="checkbox" id="b_activo"'+(d.Activo!==false&&d.activo!==false?' checked':'')+'> Activo</label></div>'+
+  '</div>';
+}
+function newBautizo(){openModal('Nuevo Bautizo',bautForm(),modalBtns('guardarBautizo()','Guardar'),'lg');}
+function editBautizo(id){
+  var d=_bautizosData.find(function(b){return (b.ID||b.id)==id;});
+  if(!d){toast('No encontrado','er');return;}
+  openModal('Editar Bautizo',bautForm(d),modalBtns("guardarBautizo("+id+")",'Actualizar'),'lg');
+}
+function guardarBautizo(id){
+  var data={ID:id||'',Fecha:g('b_fecha'),Nombre:g('b_nombre'),Edad:parseInt(g('b_edad')||'0'),Telefono:g('b_telefono'),Direccion:g('b_direccion'),PastorOficiante:g('b_pastor'),Lugar:g('b_lugar'),Observaciones:g('b_obs'),Activo:document.getElementById('b_activo')?.checked||false};
+  if(!data.Nombre){toast('El nombre es requerido','wa');return;}
+  loading(true);
+  call('saveBautizo',data,function(_,res){loading(false);if(res&&res.ok){toast('Guardado','ok');closeModal();loadBautizos();}else toast('Error: '+(res&&res.msg||'Error'),'er');});
+}
+function delBautizo(id){
+  customConfirm('¿Eliminar este bautizo?',function(ok){if(!ok)return;loading(true);call('deleteBautizo',{id:id},function(_,res){loading(false);if(res&&res.ok){toast('Eliminado','ok');loadBautizos();}else toast('Error','er');});},{icon:'fa-trash-alt'});
+}
+
+var RENDERS={dashboard:renderDashboard,reportes:renderReportes,reporteDigital:renderReporteDigital,formulario:renderFormulario,generador:renderGenerador,hermanos:renderHermanos,cargaMasiva:renderCargaMasiva,supervisores:renderSupervisores,pastores:renderPastores,ayudapastor:renderAyudaPastor,seguimientos:renderSeguimientos,privilegios:renderPrivilegios,cronograma:renderCronograma,bautizos:renderBautizos,diezmos:renderDiezmos,gastos:renderGastos,inventario:renderInventario,insumos:renderInsumos,envio:renderEnvio,contactos:renderContactos,cuadre:renderCuadre,usuarios:renderUsuarios,bitacora:renderBitacora,configuracion:renderConfiguracion};
 
 // ══════════════════════════════════════════════════════════
 // CUADRE DOMINICAL — Cierre semanal (domingo 12am)

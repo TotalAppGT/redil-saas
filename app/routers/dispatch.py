@@ -5,7 +5,7 @@ from app.models import (
     Usuario, Hermano, Reporte, Seguimiento,
     Supervisor, Pastore, AyudaPastor, Contacto,
     Diezmo, Gasto, Inventario, Insumo, Privilegio,
-    Cronograma, Bitacora, Configuracion, Envio, GeneradorReporte
+    Cronograma, Bitacora, Configuracion, Envio, GeneradorReporte, Bautizo
 )
 import jwt
 import bcrypt
@@ -26,7 +26,7 @@ def esc(s):
 ALL_MENU_IDS = [
     'dashboard','reportes','reporteDigital','formulario','generador',
     'hermanos','cargaMasiva','seguimientos','privilegios',
-    'diezmos','gastos','inventario','insumos',
+    'diezmos','gastos','inventario','insumos','bautizos',
     'supervisores','pastores','ayudapastor',
     'envio','contactos','usuarios','configuracion','bitacora'
 ]
@@ -51,7 +51,7 @@ PASTOR_MAP = {"CodigoPastor": "codigo_pastor", "NombrePastor": "nombre_pastor", 
 AYUDA_PASTOR_MAP = {"CodigoAyuda": "codigo_ayuda", "NombreAyuda": "nombre_ayuda", "Distrito": "distrito", "Zona": "zona", "Area": "area", "Telefono": "telefono", "Email": "email", "Activo": "activo"}
 CONTACTO_MAP = {"Nombre": "nombre", "Correo": "email", "Telefono": "telefono", "Direccion": "direccion", "Notas": "notas", "Activo": "activo"}
 DIEZMO_MAP = {"Fecha": "fecha", "Nombre": "nombre", "Telefono": "telefono", "Grupo": "grupo", "Tipo": "tipo", "MontoQ": "monto_q", "Descripcion": "descripcion"}
-GASTO_MAP = {"id": "id", "fecha": "fecha", "evento": "evento", "categoria": "categoria", "descripcion": "descripcion", "monto": "monto", "responsable": "responsable", "metodo": "metodo", "comprobante": "comprobante", "observaciones": "observaciones"}
+GASTO_MAP = {"ID": "id", "Fecha": "fecha", "Evento": "evento", "Categoria": "categoria", "Descripcion": "descripcion", "MontoQ": "monto", "Responsable": "responsable", "Metodo": "metodo", "Comprobante": "comprobante", "Observaciones": "observaciones"}
 INVENTARIO_MAP = {"Articulo": "articulo", "Categoria": "categoria", "Cantidad": "cantidad", "Unidad": "unidad", "Estado": "estado", "Ubicacion": "ubicacion", "ValorQ": "valor_q", "Observaciones": "observaciones"}
 INSUMO_MAP = {"Articulo": "articulo", "Categoria": "categoria", "Cantidad": "cantidad", "Unidad": "unidad", "PrecioUnitarioQ": "precio_unitario_q", "StockMinimo": "stock_minimo", "Proveedor": "proveedor", "Observaciones": "observaciones"}
 PRIVILEGIO_MAP = {"Hermano": "hermano", "Area": "area", "CodigoL": "codigo_l", "Privilegio": "privilegio", "FechaInicio": "fecha_inicio", "FechaFin": "fecha_fin", "Observaciones": "observaciones", "Activo": "activo"}
@@ -60,6 +60,7 @@ BITACORA_MAP = {"FechaHora": "fecha_hora", "Usuario": "usuario", "Email": "email
 ENVIO_MAP = {"IDEnvio": "id_envio", "Fecha Hora": "fecha_hora", "Asunto Correo": "asunto_correo", "Cuerpo Mensaje": "cuerpo_mensaje", "Archivos a Enviar": "archivos_a_enviar", "Destinatarios": "destinatarios", "Estado": "estado", "Rutas Reales PDF": "rutas_reales_pdf"}
 USUARIO_MAP = {"Nombre": "nombre", "Email": "email", "Rol": "rol", "Activo": "activo", "MenuPermitido": "menu_permitido", "PuedeVerBitacora": "puede_ver_bitacora"}
 GENERADOR_MAP = {"ID_Reporte": "id_reporte", "Fecha Inicio": "fecha_inicio", "Fecha Fin": "fecha_fin", "Total Ofrenda": "total_ofrenda", "Total Asistencia": "total_asistencia", "Titulo de Reporte": "titulo_reporte", "Archivo Generado": "archivo_generado", "No Serie": "no_serie", "Mes Reporte": "mes_reporte", "Ano Reporte": "ano_reporte", "Filtro Lider": "filtro_lider", "Filtro Sup Sector": "filtro_sup_sector", "Filtro Sup Area": "filtro_sup_area", "Filtro Pastor Zona": "filtro_pastor_zona", "Filtro Distrito": "filtro_distrito", "Filtro Zona": "filtro_zona"}
+BAUTIZO_MAP = {"ID": "id", "Fecha": "fecha", "Nombre": "nombre", "Edad": "edad", "Telefono": "telefono", "Direccion": "direccion", "PastorOficiante": "pastor_oficiante", "Lugar": "lugar", "Observaciones": "observaciones", "Activo": "activo"}
 
 def get_user_from_token(token: str, db: Session):
     try:
@@ -424,6 +425,19 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
 
         if action == "deleteCronograma":
             return delete_entity(db, Cronograma, payload)
+
+        # ── BAUTIZOS ──
+        if action == "getBautizos":
+            q = db.query(Bautizo).order_by(Bautizo.fecha.desc())
+            if payload.get("desde"): q = q.filter(Bautizo.fecha >= payload["desde"])
+            if payload.get("hasta"): q = q.filter(Bautizo.fecha <= payload["hasta"])
+            return [db_to_gas(b, BAUTIZO_MAP) for b in q.all()]
+
+        if action == "saveBautizo":
+            return save_entity(db, Bautizo, BAUTIZO_MAP, payload)
+
+        if action == "deleteBautizo":
+            return delete_entity(db, Bautizo, payload)
 
         # ── BITACORA (raw array) ──
         if action == "getBitacora":
