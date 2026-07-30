@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.database import engine, Base, SessionLocal
-from app.routers import reportes, hermanos, seguimientos, auth, telegram
+from app.routers import reportes, hermanos, seguimientos, auth, telegram, dispatch
 from app.models import Usuario
 import bcrypt
 import os
@@ -44,6 +44,7 @@ app.include_router(hermanos.router, prefix="/api/hermanos", tags=["Hermanos"])
 app.include_router(reportes.router, prefix="/api/reportes", tags=["Reportes"])
 app.include_router(seguimientos.router, prefix="/api/seguimientos", tags=["Seguimientos"])
 app.include_router(telegram.router, prefix="/api/telegram", tags=["Telegram"])
+app.include_router(dispatch.router, prefix="/api", tags=["Dispatch"])
 
 @app.get("/api/health")
 def health():
