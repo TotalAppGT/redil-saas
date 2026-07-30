@@ -482,6 +482,11 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             data = payload_to_kwargs(USUARIO_MAP, payload)
             password = payload.get("Password", "")
             if password: data["password"] = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
+            # Convertir strings SI/NO a booleanos
+            if "activo" in data:
+                data["activo"] = str(data["activo"]).upper() in ("SI", "TRUE", "1", "YES")
+            if "puede_ver_bitacora" in data:
+                data["puede_ver_bitacora"] = str(data["puede_ver_bitacora"]).upper() in ("SI", "TRUE", "1", "YES")
             if item_id:
                 obj = db.query(Usuario).filter(Usuario.id == item_id).first()
                 if not obj: return {"ok": False, "msg": "Usuario no encontrado"}

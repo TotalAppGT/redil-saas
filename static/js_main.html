@@ -1933,18 +1933,21 @@ function actualizarDatalistsForm() {
   try {
     var svs = JSON.parse(localStorage.getItem('_svs_c') || '[]');
     var pas = JSON.parse(localStorage.getItem('_pas_c') || '[]');
-    var aas = JSON.parse(localStorage.getItem('_aas_c') || '[]');
+    var aas = JSON.parse(localStorage.getItem('_aas_c') || '{}');
     var ssl = document.getElementById('hf_ssl');
     var pzl = document.getElementById('hf_pzl');
     var sal = document.getElementById('hf_sal');
-    if (ssl && svs.length) {
+    if (ssl && Array.isArray(svs) && svs.length) {
       ssl.innerHTML = svs.map(function(s){ return '<option value="'+esc(s.n)+'">'+esc(s.c)+'-'+esc(s.n)+'</option>'; }).join('');
     }
-    if (pzl && pas.length) {
+    if (pzl && Array.isArray(pas) && pas.length) {
       pzl.innerHTML = pas.map(function(p){ return '<option value="'+esc(p.n)+'">'+esc(p.c)+'-'+esc(p.n)+'</option>'; }).join('');
     }
-    if (sal && aas.length) {
-      sal.innerHTML = aas.map(function(a){ return '<option value="'+esc(a)+'">'+esc(a)+'</option>'; }).join('');
+    if (sal) {
+      var areaList = Array.isArray(aas) ? aas : (aas && typeof aas === 'object' ? Object.keys(aas) : []);
+      if (areaList.length) {
+        sal.innerHTML = areaList.map(function(a){ return '<option value="'+esc(a)+'">'+esc(a)+'</option>'; }).join('');
+      }
     }
   } catch(e) { console.error("Error al actualizar listas", e); }
 }
