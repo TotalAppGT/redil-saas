@@ -10,6 +10,20 @@ import os
 # Crear tablas en BD
 Base.metadata.create_all(bind=engine)
 
+# Migración: agregar columnas nuevas si no existen
+try:
+    from sqlalchemy import inspect, text
+    inspector = inspect(engine)
+    cols = [c["name"] for c in inspector.get_columns("usuarios")]
+    with engine.connect() as conn:
+        if "menu_permitido" not in cols:
+            conn.execute(text("ALTER TABLE usuarios ADD COLUMN menu_permitido TEXT"))
+        if "puede_ver_bitacora" not in cols:
+            conn.execute(text("ALTER TABLE usuarios ADD COLUMN puede_ver_bitacora BOOLEAN DEFAULT TRUE"))
+        conn.commit()
+except Exception as e:
+    print(f"⚠️ Migración: {e}")
+
 # Seed: crear admin por defecto
 try:
     db = SessionLocal()
@@ -20,7 +34,9 @@ try:
             email="totalappgt@gmail.com",
             password=bcrypt.hashpw("admintotal".encode(), bcrypt.gensalt()).decode(),
             rol="propietario",
-            activo=True
+            activo=True,
+            menu_permitido=None,
+            puede_ver_bitacora=True
         )
         db.add(admin)
         db.commit()
