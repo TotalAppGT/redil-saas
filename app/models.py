@@ -61,3 +61,178 @@ class Usuario(Base):
     activo = Column(Boolean, default=True)
     menu_permitido = Column(Text, nullable=True)
     puede_ver_bitacora = Column(Boolean, default=True)
+
+class Supervisor(Base):
+    __tablename__ = "supervisores"
+    id = Column(Integer, primary_key=True, index=True)
+    codigo_sup = Column(String(50), unique=True, index=True)
+    nombre_sup = Column(String(200))
+    distrito = Column(String(10))
+    zona = Column(String(10))
+    area = Column(String(10))
+    sector = Column(String(10))
+    telefono = Column(String(50))
+    email = Column(String(200))
+    direccion = Column(Text)
+    activo = Column(Boolean, default=True)
+
+class Pastore(Base):
+    __tablename__ = "pastores"
+    id = Column(Integer, primary_key=True, index=True)
+    codigo_pastor = Column(String(50), unique=True, index=True)
+    nombre_pastor = Column(String(200))
+    distrito = Column(String(10))
+    zona = Column(String(10))
+    telefono = Column(String(50))
+    email = Column(String(200))
+    direccion = Column(Text)
+    activo = Column(Boolean, default=True)
+
+class AyudaPastor(Base):
+    __tablename__ = "ayuda_pastor"
+    id = Column(Integer, primary_key=True, index=True)
+    codigo_ayuda = Column(String(50), unique=True, index=True)
+    nombre_ayuda = Column(String(200))
+    distrito = Column(String(10))
+    zona = Column(String(10))
+    area = Column(String(10))
+    telefono = Column(String(50))
+    email = Column(String(200))
+    direccion = Column(Text)
+    activo = Column(Boolean, default=True)
+
+class Contacto(Base):
+    __tablename__ = "contactos"
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(200))
+    telefono = Column(String(50))
+    email = Column(String(200))
+    direccion = Column(Text)
+    notas = Column(Text)
+    activo = Column(Boolean, default=True)
+
+class Diezmo(Base):
+    __tablename__ = "diezmos"
+    id = Column(Integer, primary_key=True, index=True)
+    codigo = Column(String(50), index=True)
+    nombre = Column(String(200))
+    fecha = Column(Date)
+    telefono = Column(String(50))
+    grupo = Column(String(10))
+    monto = Column(Numeric(12, 2), default=0)
+    mes = Column(String(20))
+    anio = Column(String(10))
+    tipo = Column(String(50))
+    observaciones = Column(Text)
+
+class Gasto(Base):
+    __tablename__ = "gastos"
+    id = Column(Integer, primary_key=True, index=True)
+    concepto = Column(String(200))
+    monto = Column(Numeric(12, 2), default=0)
+    fecha = Column(Date)
+    categoria = Column(String(100))
+    descripcion = Column(Text)
+    responsable = Column(String(200))
+    metodo = Column(String(100))
+    comprobante = Column(String(200))
+    observaciones = Column(Text)
+
+class Inventario(Base):
+    __tablename__ = "inventario"
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(200))
+    cantidad = Column(Numeric(12, 2), default=0)
+    unidad = Column(String(50))
+    descripcion = Column(Text)
+    categoria = Column(String(100))
+    estado = Column(String(50))
+    ubicacion = Column(String(200))
+    valor_q = Column(Numeric(12, 2), default=0)
+    observaciones = Column(Text)
+
+class Insumo(Base):
+    __tablename__ = "insumos"
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String(200))
+    cantidad = Column(Numeric(12, 2), default=0)
+    unidad = Column(String(50))
+    tipo = Column(String(100))
+    categoria = Column(String(100))
+    precio_unitario_q = Column(Numeric(12, 2), default=0)
+    stock_minimo = Column(Numeric(12, 2), default=0)
+    proveedor = Column(String(200))
+    observaciones = Column(Text)
+
+class Privilegio(Base):
+    __tablename__ = "privilegios"
+    id = Column(Integer, primary_key=True, index=True)
+    codigo_lead = Column(String(50), index=True)
+    nombre = Column(String(200))
+    area = Column(String(100))
+    privilegio = Column(String(200))
+    fecha_inicio = Column(Date)
+    fecha_fin = Column(Date)
+    activo = Column(Boolean, default=True)
+    observaciones = Column(Text)
+
+class Cronograma(Base):
+    __tablename__ = "cronograma"
+    id = Column(Integer, primary_key=True, index=True)
+    hermano = Column(String(200))
+    area = Column(String(100))
+    servicio = Column(String(200))
+    privilegio = Column(String(200))
+    lunes = Column(String(100))
+    jueves = Column(String(100))
+    domingo_manana = Column(String(100))
+    domingo_tarde = Column(String(100))
+    fecha_asignacion = Column(Date)
+    observaciones = Column(Text)
+    activo = Column(Boolean, default=True)
+
+class Bitacora(Base):
+    __tablename__ = "bitacora"
+    id = Column(Integer, primary_key=True, index=True)
+    fecha = Column(DateTime, default=datetime.datetime.utcnow)
+    usuario = Column(String(200))
+    email = Column(String(200))
+    rol = Column(String(50))
+    accion = Column(String(200))
+    detalle = Column(Text)
+
+class Configuracion(Base):
+    __tablename__ = "configuraciones"
+    id = Column(Integer, primary_key=True, index=True)
+    clave = Column(String(100), unique=True, index=True)
+    valor = Column(Text)
+
+class Envio(Base):
+    __tablename__ = "envios"
+    id = Column(Integer, primary_key=True, index=True)
+    fecha_envio = Column(DateTime)
+    asunto = Column(String(200))
+    mensaje = Column(Text)
+    archivos_a_enviar = Column(Text)
+    destinatarios = Column(Text)
+    estado = Column(String(50), default="Pendiente")
+    rutas_reales_pdf = Column(Text)
+
+class GeneradorReporte(Base):
+    __tablename__ = "generadores_reporte"
+    id = Column(Integer, primary_key=True, index=True)
+    fecha_inicio = Column(Date)
+    fecha_fin = Column(Date)
+    total_ofrenda = Column(Numeric(12, 2), default=0)
+    total_asistencia = Column(Integer, default=0)
+    titulo_reporte = Column(String(200))
+    archivo_generado = Column(String(200))
+    no_serie = Column(String(50))
+    mes_reporte = Column(String(20))
+    ano_reporte = Column(String(10))
+    filtro_lider = Column(String(200))
+    filtro_sup_sector = Column(String(200))
+    filtro_sup_area = Column(String(200))
+    filtro_pastor_zona = Column(String(200))
+    filtro_distrito = Column(String(10))
+    filtro_zona = Column(String(10))
