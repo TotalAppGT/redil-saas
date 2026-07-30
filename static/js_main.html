@@ -1950,26 +1950,32 @@ function actualizarDatalistsForm() {
 }
 
 function newHerm(){
-  openModal('Nuevo Lider', hermForm(), '<button class="btn btn-ol" onclick="closeModal()">Cancelar</button><button class="btn btn-pr" onclick="saveHerm()"><i class="fas fa-save"></i> Guardar</button>','xl');
-  actualizarDatalistsForm();
-  call('getSupervisores',{},function(_,r){
-    if(r&&r.ok&&r.data){
-      try{localStorage.setItem('_svs_c',JSON.stringify(r.data.map(function(s){return{c:s['CodigoSup'],n:s['NombreSup']};})));}catch(ex){}
-      actualizarDatalistsForm();
-    }
-  });
-  call('getPastores',{},function(_,rp){
-    if(rp&&rp.ok&&rp.data){
-      try{localStorage.setItem('_pas_c',JSON.stringify(rp.data.map(function(p){return{c:p['CodigoPastor'],n:p['NombrePastor']};})));}catch(ex){}
-      actualizarDatalistsForm();
-    }
-  });
-  call('getAreaSupervisores',{},function(_,ra){
-    if(ra&&ra.ok&&ra.data){
-      try{localStorage.setItem('_aas_c',JSON.stringify(ra.data));}catch(ex){}
-      actualizarDatalistsForm();
-    }
-  });
+  try {
+    var formHtml = hermForm();
+    openModal('Nuevo Lider', formHtml, '<button class="btn btn-ol" onclick="closeModal()">Cancelar</button><button class="btn btn-pr" onclick="saveHerm()"><i class="fas fa-save"></i> Guardar</button>','xl');
+    actualizarDatalistsForm();
+    call('getSupervisores',{},function(_,r){
+      if(r&&r.ok&&r.data){
+        try{localStorage.setItem('_svs_c',JSON.stringify(r.data.map(function(s){return{c:s['CodigoSup'],n:s['NombreSup']};})));}catch(ex){}
+        actualizarDatalistsForm();
+      }
+    });
+    call('getPastores',{},function(_,rp){
+      if(rp&&rp.ok&&rp.data){
+        try{localStorage.setItem('_pas_c',JSON.stringify(rp.data.map(function(p){return{c:p['CodigoPastor'],n:p['NombrePastor']};})));}catch(ex){}
+        actualizarDatalistsForm();
+      }
+    });
+    call('getAreaSupervisores',{},function(_,ra){
+      if(ra&&ra.ok&&ra.data){
+        try{localStorage.setItem('_aas_c',JSON.stringify(ra.data));}catch(ex){}
+        actualizarDatalistsForm();
+      }
+    });
+  } catch(e) {
+    console.error('Error en newHerm:', e);
+    toast('Error al abrir formulario: ' + e.message, 'er');
+  }
 }
 function editHerm(id){
   var h=_herm.find(function(x){return x['ID']===id;});
