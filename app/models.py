@@ -59,3 +59,5 @@ class Usuario(Base):
     password = Column(String(200))
     rol = Column(String(50), default="usuario")
     activo = Column(Boolean, default=True)
+    menu_permitido = Column(Text, nullable=True)
+    puede_ver_bitacora = Column(Boolean, default=True)
