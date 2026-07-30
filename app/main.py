@@ -1,6 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
 from app.database import engine, Base, SessionLocal
 from app.routers import reportes, hermanos, seguimientos, auth, telegram, dispatch
 from app.models import Usuario
@@ -90,6 +91,11 @@ app.include_router(dispatch.router, prefix="/api", tags=["Dispatch"])
 @app.get("/api/health")
 def health():
     return {"status": "ok", "version": "7.0"}
+
+@app.get("/form", response_class=HTMLResponse)
+async def form_redirect():
+    with open("static/formulario_digital.html", "r", encoding="utf-8") as f:
+        return f.read()
 
 # Servir frontend
 app.mount("/", StaticFiles(directory="static", html=True), name="static")

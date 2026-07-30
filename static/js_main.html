@@ -3004,7 +3004,7 @@ function loadBitacora(){
 function renderBitResumen(d){
   const el=document.getElementById('bitResumen');if(!el)return;
   const today_str=today();
-  const hoy=d.filter(x=>(x['Fecha']||'').startsWith(today_str)).length;
+  const hoy=d.filter(x=>(x['FechaHora']||'').startsWith(today_str)).length;
   const total=d.length;
   const props=d.filter(x=>x['Rol']==='Propietario').length;
   el.innerHTML=[
@@ -4215,6 +4215,7 @@ function renderCargaMasiva(el) {
           <option value="hermanos">Hermanos / Líderes</option>
           <option value="supervisores">Supervisores de Sector</option>
           <option value="pastores">Pastores de Zona</option>
+          <option value="ayudapastor">Ayuda de Pastor</option>
         </select>
       </div>
       <div class="fgg" style="flex:1;">
@@ -4278,8 +4279,16 @@ function procesarCargaMasiva() {
 
       resEl.innerHTML = '<i class="fas fa-circle-notch fa-spin" style="color:var(--pr)"></i> Procesando '+(rows.length-1)+' registros...';
       
-      // Enviamos la matriz limpia al servidor
-      call('importarDatosMasivos', {tipo: tipo, rows: rows}, function(err, res) {
+      const headers = rows[0];
+      const dataRows = rows.slice(1).map(function(row) {
+        var obj = {};
+        for (var i = 0; i < headers.length; i++) {
+          obj[headers[i]] = row[i] !== undefined ? row[i] : "";
+        }
+        return obj;
+      });
+      
+      call('importarDatosMasivos', {tipo: tipo, rows: dataRows}, function(err, res) {
         if(err) { resEl.innerHTML = '<span style="color:var(--err)"><i class="fas fa-times-circle"></i> Error de servidor.</span>'; return; }
         if(res && res.ok) {
           resEl.innerHTML = '<span style="color:var(--ok)"><i class="fas fa-check-circle"></i> ' + res.msg + '</span>';
@@ -4295,7 +4304,6 @@ function procesarCargaMasiva() {
 }
 
 function renderSeguimientos(el) {
-  el.innerHTML = `<div class="mod-hdr"><h2><i class="fas fa-hands-helping"></i> Control de Seguimientos</h2><div class="mod-acts"><button class="btn btn-ok btn-sm" onclick="newSeg()"><i class="fas fa-plus"></i> Nuevo Seguimiento</button><button class="btn btn-in btn-sm" onclick="exportXLS(_segs,'Seguimientos','seguimientos')"><i class="fas fa-file-excel"></i> Excel</button></div></div>
   <div class="card" style="padding:0">
     <div class="fr" style="padding:10px 14px;border-bottom:1px solid var(--brd)">
       <div class="sb2" style="flex:1;min-width:200px"><i class="fas fa-search"></i><input type="text" id="segBuscar" placeholder="Buscar persona, responsable..." oninput="_qSeg=this.value;renderSegTable()"></div>

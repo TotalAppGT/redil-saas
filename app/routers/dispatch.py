@@ -32,12 +32,12 @@ ALL_MENU_IDS = [
 ]
 
 ROL_DEFAULT_MENU = {
-    'Admin':     ['dashboard','reportes','reporteDigital','formulario','generador','hermanos','cargaMasiva','seguimientos','privilegios','diezmos','inventario','insumos','envio','contactos','usuarios','supervisores','pastores','ayudapastor','configuracion','bitacora'],
+    'Admin':     ['dashboard','reportes','reporteDigital','formulario','generador','hermanos','cargaMasiva','seguimientos','privilegios','diezmos','gastos','inventario','insumos','bautizos','envio','contactos','usuarios','supervisores','pastores','ayudapastor','configuracion','bitacora'],
     'Líder':     ['dashboard','reportes','reporteDigital','formulario','seguimientos'],
     'Secretario':['dashboard','reportes','reporteDigital','generador','seguimientos','envio','contactos'],
     'Tesorero':  ['dashboard','reportes','diezmos','gastos','generador','envio'],
     'Digitador': ['dashboard','reportes','envio','contactos'],
-    'Solo Lectura': ['envio','contactos']
+    'Solo Lectura': ['dashboard','reportes','envio','contactos']
 }
 
 DB_TO_GAS_ROLE = {
@@ -72,13 +72,15 @@ def get_user_from_token(token: str, db: Session):
 
 def make_user_response(u):
     gas_role = DB_TO_GAS_ROLE.get(u.rol, 'Solo Lectura')
-    menu = list(ROL_DEFAULT_MENU.get(gas_role, ROL_DEFAULT_MENU['Solo Lectura']))
+    default_menu = list(ROL_DEFAULT_MENU.get(gas_role, ROL_DEFAULT_MENU['Solo Lectura']))
+    saved_menu = default_menu
     if u.menu_permitido:
         try:
-            menu = json.loads(u.menu_permitido) if isinstance(u.menu_permitido, str) else u.menu_permitido
+            saved_menu = json.loads(u.menu_permitido) if isinstance(u.menu_permitido, str) else u.menu_permitido
         except:
             pass
-    return {"id": u.id, "nombre": u.nombre, "email": u.email, "rol": gas_role, "menu": menu, "isPropietario": u.rol == "propietario", "puedeVerBitacora": u.puede_ver_bitacora if hasattr(u, 'puede_ver_bitacora') else True, "PuedeEditar": "SI" if u.rol in ("propietario", "admin") else "NO", "inactMin": 60}
+    merged = list(dict.fromkeys(saved_menu + default_menu))
+    return {"id": u.id, "nombre": u.nombre, "email": u.email, "rol": gas_role, "menu": merged, "isPropietario": u.rol == "propietario", "puedeVerBitacora": u.puede_ver_bitacora if hasattr(u, 'puede_ver_bitacora') else True, "PuedeEditar": "SI" if u.rol in ("propietario", "admin") else "NO", "inactMin": 60}
 
 def gas_to_db(gas_key, field_map):
     return field_map.get(gas_key)
@@ -444,6 +446,7 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             q = db.query(Bitacora).order_by(Bitacora.fecha_hora.desc()).limit(500)
             if payload.get("desde"): q = q.filter(Bitacora.fecha_hora >= payload["desde"])
             if payload.get("hasta"): q = q.filter(Bitacora.fecha_hora <= payload["hasta"])
+            if payload.get("rol"): q = q.filter(Bitacora.rol == payload["rol"])
             return [db_to_gas(b, BITACORA_MAP) for b in q.all()]
 
         if action == "limpiarBitacora":
