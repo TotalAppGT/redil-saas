@@ -475,13 +475,22 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
 
         if action == "getFormHtml":
             import os
-            html_path = os.path.join(os.path.dirname(__file__), "..", "static", "formulario_digital.html")
-            try:
-                with open(html_path, "r", encoding="utf-8") as f:
-                    html_content = f.read()
+            # Buscar en múltiples ubicaciones posibles
+            base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            possible_paths = [
+                os.path.join(base, "static", "formulario_digital.html"),
+                os.path.join(os.getcwd(), "static", "formulario_digital.html"),
+                os.path.join(os.getcwd(), "app", "static", "formulario_digital.html"),
+            ]
+            html_content = None
+            for p in possible_paths:
+                if os.path.exists(p):
+                    with open(p, "r", encoding="utf-8") as f:
+                        html_content = f.read()
+                    break
+            if html_content:
                 return {"ok": True, "html": html_content}
-            except Exception as e:
-                return {"ok": False, "msg": f"Error al leer formulario: {str(e)}"}
+            return {"ok": False, "msg": f"Formulario no encontrado. Buscado en: {possible_paths}"}
 
         # ── REPORTE FINANCIERO ──
         if action == "getReporteFinancieroDistrito":
