@@ -95,12 +95,27 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             return {"ok": True}
 
         if action == "getDashboard":
-            return {"ok": True, "data": {
-                "totalHermanos": db.query(Hermano).count(),
-                "totalReportes": db.query(Reporte).count(),
-                "pendientes": db.query(Reporte).filter(Reporte.ofrenda_recibida.in_(["Pendiente", ""])).count(),
-                "seguimientos": db.query(Seguimiento).count()
-            }}
+            total_hermanos = db.query(Hermano).count()
+            lideres = db.query(Hermano).filter(Hermano.codigo_lead != None).count()
+            reportes_mes = db.query(Reporte).count()
+            pendientes = db.query(Reporte).filter(Reporte.ofrenda_recibida.in_(["Pendiente", ""])).count()
+            asistencia_total = db.query(db.func.coalesce(db.func.sum(Reporte.asistencia), 0)).scalar()
+            of_total = float(db.query(db.func.coalesce(db.func.sum(Reporte.ofrenda_total), 0)).scalar())
+            seg_total = db.query(Seguimiento).count()
+            return {"ok": True,
+                "lideres": lideres,
+                "reportesMes": reportes_mes,
+                "gruposRealizados": reportes_mes,
+                "asistencia": int(asistencia_total),
+                "ofTotal": round(of_total, 2),
+                "convertidos": 0,
+                "reconciliados": 0,
+                "segTotal": seg_total,
+                "pendientes": pendientes,
+                "metaGrupos": 407,
+                "proxCron": [],
+                "grafica": []
+            }
 
         if action == "getHermanos":
             hermanos = db.query(Hermano).all()
