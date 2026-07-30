@@ -123,6 +123,8 @@ def save_entity(db, model_class, field_map, payload, id_key="ID"):
 
 def delete_entity(db, model_class, payload, id_key="ID"):
     item_id = payload.get(id_key) if isinstance(payload, dict) else payload
+    if not item_id and isinstance(payload, dict):
+        item_id = payload.get("id")
     if not item_id:
         return {"ok": False, "msg": "ID requerido"}
     obj = db.query(model_class).filter(model_class.id == item_id).first()
@@ -485,6 +487,12 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
 
         if action == "saveUsuario":
             item_id = payload.get("ID")
+            email = payload.get("Email","").strip().lower()
+            if not email:
+                return {"ok": False, "msg": "Email requerido"}
+            exist = db.query(Usuario).filter(Usuario.email == email).first()
+            if exist and (not item_id or int(exist.id) != int(item_id)):
+                return {"ok": False, "msg": "Ya existe un usuario con el email: " + email}
             data = payload_to_kwargs(USUARIO_MAP, payload)
             password = payload.get("Password", "")
             if password: data["password"] = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
