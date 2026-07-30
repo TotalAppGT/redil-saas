@@ -1231,7 +1231,10 @@ function repForm(r){
   <div class="full"><div class="sect-title"><i class="fas fa-search"></i> Búsqueda por Código de Líder</div></div>
   <div class="fgg full"><label>Código de Líder <span class="req">*</span></label>
     <div class="cod-row" style="display:flex;gap:6px;flex-wrap:wrap">
-      <input type="text" class="fc" id="rf_codigo_input" placeholder="Escribe código o nombre del líder..." style="flex:2;min-width:160px" oninput="filtrarLiderInput(this.value)" autocomplete="off">
+      <div style="flex:2;min-width:160px;position:relative">
+        <input type="text" class="fc" id="rf_codigo_input" placeholder="Escribe código o nombre del líder..." style="width:100%" oninput="filtrarLiderInput(this.value)" autocomplete="off">
+        <div id="rf_sugerencias" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:2px solid var(--pr2);border-radius:0 0 10px 10px;max-height:220px;overflow-y:auto;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.15)"></div>
+      </div>
       <select class="fc" id="rf_codigo" onchange="buscarLiderSel(this.value)" style="flex:1;min-width:120px"><option value="">— Seleccionar —</option>${hOpts}</select>
       <button type="button" class="btn btn-pr btn-sm" onclick="buscarLider(g('rf_codigo')||g('rf_codigo_input'))"><i class="fas fa-search"></i> Buscar</button>
     </div>
@@ -1277,32 +1280,56 @@ function repForm(r){
 }
 
 // ── BÚSQUEDA DE LÍDER POR TECLADO (para rf_codigo_input) ──────
+var _rfSugTimer=null;
 function filtrarLiderInput(val){
   var sel=document.getElementById('rf_codigo');
+  var sug=document.getElementById('rf_sugerencias');
+  var q=val.trim();
+  if(!q){if(sel)sel.value='';if(sug)sug.style.display='none';return;}
+  // Buscar en server para sugerencias
+  if(q.length>=2){
+    clearTimeout(_rfSugTimer);
+    _rfSugTimer=setTimeout(function(){
+      call('buscarLideres',{query:q},function(_,res){
+        if(!sug)return;
+        if(!res||!res.ok||!res.data||!res.data.length){sug.style.display='none';return;}
+        sug.innerHTML=res.data.map(function(h){
+          return '<div class="sug-item" onclick="seleccionarLiderRF(\''+esc(h['CodigoL']||'')+'\')" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #eee;font-size:13px" onmouseenter="this.style.background=\'#f0f4ff\'" onmouseleave="this.style.background=\'#fff\'">'+
+            '<span style="font-weight:700;color:var(--pr)">'+esc(h['NombreL'])+'</span> <span style="font-size:12px;color:var(--pr2);font-family:monospace">'+esc(h['CodigoL'])+'</span>'+
+            '<span style="font-size:11px;color:var(--tx3);margin-left:8px">D'+esc(h['Distrito'])+' Z'+esc(h['Zona'])+'</span></div>';
+        }).join('');
+        sug.style.display='block';
+      });
+    },300);
+  }
   if(!sel)return;
-  var q=val.toLowerCase().trim();
-  if(!q){sel.value='';return;}
+  var ql=q.toLowerCase();
   var opts=sel.options;
-  var bestMatch = null;
+  var bestMatch=null;
   for(var i=1;i<opts.length;i++){
     var txt=opts[i].text.toLowerCase();
-    if(txt.includes(q)){
-      sel.value=opts[i].value;
-      bestMatch = opts[i];
-      // Auto-buscar inmediatamente si es match exacto o empieza con la consulta
-      if(txt === q || txt.startsWith(q)){
-        buscarLider(opts[i].value);
-        return;
-      }
+    if(txt.includes(ql)){
+      sel.value=opts[i].value;bestMatch=opts[i];
+      if(txt===ql||txt.startsWith(ql)){buscarLider(opts[i].value);return;}
     }
   }
-  if(bestMatch) return;
-  if(q.length>=2) buscarLider(val);
+  if(bestMatch)return;
 }
 function buscarLiderSel(val){
   document.getElementById('rf_codigo_input').value=val;
   buscarLider(val);
 }
+function seleccionarLiderRF(codigo){
+  document.getElementById('rf_codigo_input').value=codigo;
+  document.getElementById('rf_sugerencias').style.display='none';
+  buscarLider(codigo);
+}
+// Cerrar sugerencias al hacer clic fuera
+document.addEventListener('click',function(e){
+  var sug=document.getElementById('rf_sugerencias');
+  var inp=document.getElementById('rf_codigo_input');
+  if(sug&&inp&&e.target!==inp&&!sug.contains(e.target))sug.style.display='none';
+});
 
 function buscarLider(codigo){
   const st=document.getElementById('codStatus');if(!codigo){if(st)st.textContent='';return;}
