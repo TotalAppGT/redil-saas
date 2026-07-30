@@ -219,7 +219,7 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
         if action == "buscarLiderFormulario":
             query = payload.get("query", "")
             h = db.query(Hermano).filter(
-                (Hermano.codigo_lead == query) | (Hermano.nombre.ilike(f"%{query}%"))
+                (func.lower(Hermano.codigo_lead) == query.lower()) | (Hermano.nombre.ilike(f"%{query}%"))
             ).first()
             if h: return {"ok": True, "data": db_to_gas(h, HERMANO_MAP)}
             return {"ok": False, "msg": "No encontrado"}
@@ -933,6 +933,26 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             </body></html>"""
 
             result = {"ok": True, "html": html, "noSerie": no_serie}
+            # Guardar registro en generador_reportes
+            try:
+                gr = GeneradorReporte(
+                    no_serie=no_serie,
+                    fecha_inicio=desde or None,
+                    fecha_fin=hasta or None,
+                    total_ofrenda=total_ofrenda,
+                    total_asistencia=total_asist,
+                    titulo_reporte=tipo,
+                    filtro_lider=lider or None,
+                    filtro_sup_sector=sup_sector or None,
+                    filtro_sup_area=sup_area or None,
+                    filtro_pastor_zona=pastor_zona or None,
+                    filtro_distrito=distrito or None,
+                    filtro_zona=zona or None,
+                    archivo_generado=""
+                )
+                db.add(gr)
+                db.commit()
+            except: pass
             return result
 
         if action == "guardarPdfAction":
@@ -955,7 +975,15 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                     return {"ok": True, "html": html_content, "noSerie": no_serie, "msg": "PDF generado localmente. Configura DriveFolderId para guardar en Drive."}
                 from app.drive_utils import upload_pdf
                 pdf_result = upload_pdf(pdf_bytes, f"{no_serie}.pdf", folder_id)
-                return {"ok": True, "html": html_content, "noSerie": no_serie, "pdfUrl": pdf_result["url"]}
+                pdf_url = pdf_result["url"]
+                # Actualizar registro en generador_reportes
+                try:
+                    gr = db.query(GeneradorReporte).filter(GeneradorReporte.no_serie == no_serie).first()
+                    if gr:
+                        gr.archivo_generado = pdf_url
+                        db.commit()
+                except: pass
+                return {"ok": True, "html": html_content, "noSerie": no_serie, "pdfUrl": pdf_url}
             except Exception as e:
                 return {"ok": False, "msg": f"Error guardando PDF: {str(e)}"}
 
