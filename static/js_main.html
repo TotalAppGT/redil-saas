@@ -1,6 +1,3 @@
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script>
 // ══════════════════════════════════════════════════════════
 // REDIL — Sistema de Gestión v5.1
 // ══════════════════════════════════════════════════════════
@@ -4215,36 +4212,33 @@ function renderCargaMasiva(el) {
 // ── DESCARGAR PLANTILLA PARA CARGA MASIVA ───────────
 function descargarPlantilla(tipo) {
   loading(true);
-  google.script.run
-    .withSuccessHandler(function(hdrs) {
-      loading(false);
-      if (!hdrs || !hdrs.length) { toast("Error obteniendo encabezados", "er"); return; }
-      var ejemplo = hdrs.map(function(h) {
-        if (h.indexOf("Nombre") >= 0) return "Ejemplo";
-        if (h === "Distrito" || h === "Sector" || h === "Grupo") return "1";
-        if (h === "Zona") return "1";
-        if (h === "Area") return "A";
-        if (h === "Activo") return "SI";
-        return "";
-      });
-      var nombre = "Plantilla_" + tipo.charAt(0).toUpperCase() + tipo.slice(1) + ".xlsx";
-      var ws = XLSX.utils.aoa_to_sheet([hdrs, ejemplo]);
-      var wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, "Plantilla");
-      var out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-      var blob = new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-      var url = URL.createObjectURL(blob);
-      var a = document.createElement("a");
-      a.href = url; a.download = nombre;
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-      toast(nombre + " descargada", "ok", 3000);
-    })
-    .withFailureHandler(function(err) {
-      loading(false);
-      toast("Error: " + (err.message || err), "er");
-    })
-    .getHeadersByTable(tipo);
+  call('getEncabezadosCargaMasiva', {tipo: tipo}, function(err, res) {
+    loading(false);
+    if (err || !res || !res.ok) { toast("Error obteniendo encabezados", "er"); return; }
+    var hdrs = res.data || res;
+    if (!hdrs || !hdrs.length) { toast("Error obteniendo encabezados", "er"); return; }
+    var ejemplo = hdrs.map(function(h) {
+      if (typeof h !== 'string') return "";
+      if (h.indexOf("Nombre") >= 0) return "Ejemplo";
+      if (h === "Distrito" || h === "Sector" || h === "Grupo") return "1";
+      if (h === "Zona") return "1";
+      if (h === "Area") return "A";
+      if (h === "Activo") return "SI";
+      return "";
+    });
+    var nombre = "Plantilla_" + tipo.charAt(0).toUpperCase() + tipo.slice(1) + ".xlsx";
+    var ws = XLSX.utils.aoa_to_sheet([hdrs, ejemplo]);
+    var wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Plantilla");
+    var out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    var blob = new Blob([out], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url; a.download = nombre;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast(nombre + " descargada", "ok", 3000);
+  });
 }
 function procesarCargaMasiva() {
   const resEl = document.getElementById('cmResult');
@@ -4267,17 +4261,16 @@ function procesarCargaMasiva() {
 
       resEl.innerHTML = '<i class="fas fa-circle-notch fa-spin" style="color:var(--pr)"></i> Procesando '+(rows.length-1)+' registros...';
       
-      // Enviamos la matriz limpia al servidor (Código.gs)
-      google.script.run.withSuccessHandler(function(res) {
+      // Enviamos la matriz limpia al servidor
+      call('importarDatosMasivos', {tipo: tipo, rows: rows}, function(err, res) {
+        if(err) { resEl.innerHTML = '<span style="color:var(--err)"><i class="fas fa-times-circle"></i> Error de servidor.</span>'; return; }
         if(res && res.ok) {
           resEl.innerHTML = '<span style="color:var(--ok)"><i class="fas fa-check-circle"></i> ' + res.msg + '</span>';
           toast('Carga exitosa', 'ok');
         } else {
           resEl.innerHTML = '<span style="color:var(--err)"><i class="fas fa-times-circle"></i> ' + (res.msg || 'Error') + '</span>';
         }
-      }).withFailureHandler(function(err) {
-        resEl.innerHTML = '<span style="color:var(--err)"><i class="fas fa-times-circle"></i> Error de servidor.</span>';
-      }).importarDatosMasivos(tipo, rows);
+      });
       
     } catch(ex) { resEl.innerHTML = '<span style="color:var(--err)">Error procesando Excel. Asegúrate de que no esté corrupto.</span>'; }
   };
@@ -4516,25 +4509,20 @@ function startAutoRefresh(){
 
 // ── CARGAR CONFIG EN PANTALLA DE LOGIN ANTES DE INGRESAR ──
 function cargarConfigLogin(){
-  try{
-    google.script.run
-      .withSuccessHandler(function(cfg){
-        if(!cfg||!cfg.ok) return;
-        APP.config=cfg;
-        var lu=cfg.logo_url||cfg.logoUrl||'';
-        if(lu){
-          var _t='<img src="'+lu+'" style="width:100%;height:100%;border-radius:50%;object-fit:cover">';
-          var lw=document.getElementById('loginLogoWrap');if(lw)lw.innerHTML=_t;
-          var sw=document.getElementById('sidebarLogoWrap');if(sw)sw.innerHTML=_t;
-        }
-        if(cfg.nombre){
-          var lt=document.getElementById('loginTitle');if(lt)lt.textContent=cfg.nombre;
-          var st=document.getElementById('sbAppTitle');if(st)st.innerHTML='<span>'+cfg.nombre+'</span>';
-        }
-      })
-      .withFailureHandler(function(){})
-      .dispatch('getConfig',{});
-  }catch(e){}
+  call('getConfig', {}, function(err, cfg) {
+    if(err || !cfg || !cfg.ok) return;
+    APP.config=cfg;
+    var lu=cfg.logo_url||cfg.logoUrl||'';
+    if(lu){
+      var _t='<img src="'+lu+'" style="width:100%;height:100%;border-radius:50%;object-fit:cover">';
+      var lw=document.getElementById('loginLogoWrap');if(lw)lw.innerHTML=_t;
+      var sw=document.getElementById('sidebarLogoWrap');if(sw)sw.innerHTML=_t;
+    }
+    if(cfg.nombre){
+      var lt=document.getElementById('loginTitle');if(lt)lt.textContent=cfg.nombre;
+      var st=document.getElementById('sbAppTitle');if(st)st.innerHTML='<span>'+cfg.nombre+'</span>';
+    }
+  });
 }
 // ── INIT ──────────────────────────────────────────────────
 document.addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
@@ -4542,11 +4530,4 @@ initLogo();
 cargarConfigLogin();
 startAutoRefresh();
 // Esperar a que google.script.run esté disponible
-(function waitForGAS(){
-  if(typeof google!=='undefined'&&google.script&&google.script.run){
-    tryRestoreSession();
-  }else{
-    setTimeout(waitForGAS,50);
-  }
-})();
-</script>
+tryRestoreSession();
