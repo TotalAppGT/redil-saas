@@ -117,6 +117,7 @@ function saveBrandLogo(){if(!window._pendBrandLogo){closeModal();return;}localSt
 function clearBrandLogo(){localStorage.removeItem(TOTALAPP_LOGO_KEY);var el=document.getElementById('totalAppLogoWrap');if(el)el.innerHTML='<i class="fas fa-code" style="color:#64b5f6"></i><span style="color:#90caf9;font-weight:800">Total App GT</span>';closeModal();toast('Logo removido','wa');}
 
 function openModal(title,body,foot,size){var ov=document.getElementById('modalOv'),box=document.getElementById('modalBox'),tEl=document.getElementById('modalTitle'),bEl=document.getElementById('modalBody'),fEl=document.getElementById('modalFoot');if(tEl)tEl.textContent=title;if(bEl)bEl.innerHTML=body||'';if(fEl)fEl.innerHTML=foot||'';if(box)box.style.maxWidth=size==='xl'?'920px':'';if(ov)ov.classList.add('open');}
+function modalBtns(saveFn,saveLabel,cancelLabel){return '<button class="btn btn-ol" onclick="closeModal()">'+(cancelLabel||'Cancelar')+'</button><button class="btn btn-pr" onclick="'+saveFn+'"><i class="fas fa-save"></i> '+(saveLabel||'Guardar')+'</button>';}
 function closeModal(){var ov=document.getElementById('modalOv');if(ov)ov.classList.remove('open');}
 function onOvClick(e){if(e.target===document.getElementById('modalOv'))closeModal();}
 function openSidebar(){var s=document.getElementById('sidebar'),o=document.getElementById('sbOv');if(s)s.classList.add('open');if(o)o.classList.add('show');}

@@ -97,16 +97,5 @@ async def form_redirect():
     with open("static/formulario_digital.html", "r", encoding="utf-8") as f:
         return f.read()
 
-@app.get("/f", response_class=HTMLResponse)
-async def form_short():
-    """Short URL for digital form"""
-    with open("static/formulario_digital.html", "r", encoding="utf-8") as f:
-        return f.read()
-
-@app.get("/r", response_class=HTMLResponse)
-async def report_short():
-    """Short URL redirect to main app"""
-    return HTMLResponse(content='<html><head><meta http-equiv="refresh" content="0;url=/"></head><body>Redirigiendo...</body></html>')
-
 # Servir frontend
 app.mount("/", StaticFiles(directory="static", html=True), name="static")
