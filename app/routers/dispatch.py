@@ -589,7 +589,7 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             for c in db.query(Configuracion).all(): cfg_dict[c.clave] = c.valor
             sys_nom = cfg_dict.get("nombre", "REDIL")
             smtp_user = cfg_dict.get("smtp_user", "totalappgt@gmail.com")
-            smtp_password = cfg_dict.get("smtp_password", "")
+            smtp_password = cfg_dict.get("smtp_password", "nnqx ifkr vecb imxq")
             gen_records = db.query(GeneradorReporte).filter(GeneradorReporte.no_serie.in_(series)).all()
             if not gen_records: return {"ok": False, "msg": f"No se encontraron reportes: {','.join(series)}"}
             html_parts = []
@@ -723,7 +723,7 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             for c in db.query(Configuracion).all(): cfg_dict[c.clave] = c.valor
             sys_nom = cfg_dict.get("nombre", "REDIL")
             smtp_user = cfg_dict.get("smtp_user", "totalappgt@gmail.com")
-            smtp_password = cfg_dict.get("smtp_password", "")
+            smtp_password = cfg_dict.get("smtp_password", "nnqx ifkr vecb imxq")
             subj = asunto or f"{sys_nom} · Informe · {datetime.now().strftime('%d/%m/%Y')}"
             full_html = f'''<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:Arial,sans-serif;padding:20px">
               <div style="max-width:600px;margin:0 auto"><h2 style="color:#1a3a5c">{sys_nom}</h2>

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.models import Reporte, Hermano, Seguimiento
+from app.models import Reporte, Hermano, Seguimiento, Configuracion
 from datetime import date, timedelta, datetime
 import os
 import httpx
@@ -9,19 +9,33 @@ import json
 
 router = APIRouter()
 
-TOKEN = os.getenv("TELEGRAM_TOKEN", "")
-CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+ENV_TOKEN = os.getenv("TELEGRAM_TOKEN", "")
+ENV_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 
-def tg_send(text, chat_id=None):
-    if not TOKEN: return
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    payload = {"chat_id": chat_id or CHAT_ID, "text": str(text)[:4000], "parse_mode": "HTML"}
+def _get_config(db):
+    cfg = {}
+    try:
+        for c in db.query(Configuracion).all():
+            cfg[c.clave] = c.valor
+    except:
+        pass
+    return cfg
+
+def tg_send(text, chat_id=None, db=None):
+    token = ENV_TOKEN
+    cid = chat_id or ENV_CHAT_ID
+    if not token and db:
+        cfg = _get_config(db)
+        token = cfg.get("telegram_token", "")
+        cid = cid or cfg.get("telegram_chat_id", "")
+    if not token: return
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = {"chat_id": cid, "text": str(text)[:4000], "parse_mode": "HTML"}
     try: httpx.post(url, json=payload, timeout=10)
     except: pass
 
 def esc(s): return str(s or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
 
-# -- Pendientes (excepción) --
 def cmd_pendientes(db):
     rs = db.query(Reporte).filter(Reporte.ofrenda_recibida.in_(["Pendiente", ""])).all()
     if not rs: return "✅ Todas las ofrendas recibidas."
@@ -34,12 +48,7 @@ def cmd_pendientes(db):
         if key not in grupos:
             grupos[key] = {"distrito": getattr(h, 'distrito', '?'), "zona": getattr(h, 'zona', '?'), "items": [], "subtotal": 0}
         m = float(r.ofrenda_total or 0)
-        grupos[key]["items"].append({
-            "nombre": r.lider, "codigo": r.codigo, "monto": m,
-            "fecha": str(r.fecha) if r.fecha else "—",
-            "area": getattr(h, 'area', ''), "sector": getattr(h, 'sector', ''),
-            "grupo": getattr(h, 'grupo', ''), "pastor": getattr(h, 'pastor_zona', '—')
-        })
+        grupos[key]["items"].append({"nombre": r.lider, "codigo": r.codigo, "monto": m, "fecha": str(r.fecha) if r.fecha else "—", "area": getattr(h, 'area', ''), "sector": getattr(h, 'sector', ''), "grupo": getattr(h, 'grupo', ''), "pastor": getattr(h, 'pastor_zona', '—')})
         grupos[key]["subtotal"] += m
         total_monto += m
     t = f"⚠️ <b>Pendientes: {len(rs)}</b> | Q{total_monto:.2f}\n"
@@ -50,11 +59,6 @@ def cmd_pendientes(db):
             t += f"🔹 <b>{esc(it['nombre'])}</b> ({it['codigo']}) | {it['fecha']}\n   📍 A{it['area']} S{it['sector']} G{it['grupo']} | Q{it['monto']:.2f} | 🙏 {esc(it['pastor'])}\n"
     return t
 
-# -- Webhook para Telegram --
-class TelegramUpdate:
-    def __init__(self, data):
-        self.data = data
-
 @router.post("/webhook")
 async def webhook(data: dict, db: Session = Depends(get_db)):
     try:
@@ -62,16 +66,15 @@ async def webhook(data: dict, db: Session = Depends(get_db)):
         txt = msg.get("text", "").strip()
         cid = msg.get("chat", {}).get("id")
         if not txt or not cid: return {"ok": True}
-        
         cmd = txt.split()[0].lower()
-        
         if cmd in ("/pendientes", "/pendiente"):
-            tg_send(cmd_pendientes(db), cid)
+            tg_send(cmd_pendientes(db), cid, db)
         elif cmd == "/start":
-            tg_send("🤖 <b>REDIL Bot v7.0</b>\nUsa /ayuda para comandos.", cid)
+            tg_send("🤖 <b>REDIL Bot v7.0</b>\nUsa /ayuda para comandos.\n\nComandos:\n/pendientes - Ver ofrendas pendientes", cid, db)
+        elif cmd == "/ayuda":
+            tg_send("📋 <b>Comandos REDIL Bot</b>\n\n/pendientes - Reportes con ofrenda pendiente\n/start - Mensaje de bienvenida", cid, db)
         else:
-            tg_send("🤷 No entendí. Usa /ayuda para comandos.", cid)
-        
+            tg_send("🤷 No entendí. Usa /ayuda para comandos.", cid, db)
         return {"ok": True}
     except Exception as e:
         return {"ok": False, "error": str(e)}

@@ -250,7 +250,7 @@ function tryRestoreSession(){
         if(l){ l.style.display='flex'; l.classList.add('active'); }
         return;
       }
-      localStorage.setItem(SESSION_TIME_KEY,Date.now().toString());APP.user=user;mostrarApp(user);
+      localStorage.setItem(SESSION_TIME_KEY,Date.now().toString());localStorage.setItem(SESSION_USER_KEY,JSON.stringify(res.user));APP.user=res.user;mostrarApp(res.user);
     });return true;
   }catch(ex){clearSession();return false;}
 }
