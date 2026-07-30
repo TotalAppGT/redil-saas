@@ -194,7 +194,7 @@ function mostrarApp(user){
         var _imgT='<img src="'+_lu+'" style="width:100%;height:100%;border-radius:50%;object-fit:cover">';
         var _lw=document.getElementById('loginLogoWrap');if(_lw)_lw.innerHTML=_imgT;
         var _sw=document.getElementById('sidebarLogoWrap');if(_sw)_sw.innerHTML=_imgT;
-      }if(cfg.nombre)try{if(window.aplicarNombreSistema)aplicarNombreSistema(cfg.nombre);}catch(e){}try{if(cfg.menuConfig)initMenuState(cfg.menuConfig);}catch(e){}try{applyGlobalMenuConfig(cfg.menuConfig,user&&user.isPropietario);}catch(e){}aplicarTema(cfg);});
+      }if(cfg.nombre)try{if(window.aplicarNombreSistema)aplicarNombreSistema(cfg.nombre);}catch(e){}try{if(cfg.menuConfig)initMenuState(cfg.menuConfig);}catch(e){}try{buildSidebarMenu((APP.user&&APP.user.menu)||[],!!(APP.user&&APP.user.isPropietario));}catch(e){}aplicarTema(cfg);});
   call('getHermanos',{},function(_,h){APP.hermanos=Array.isArray(h)?h:[];});
   call('getContactos',{},function(_,c){APP.contactos=Array.isArray(c)?c:[];});
   setTimeout(function(){
@@ -320,6 +320,13 @@ function buildSidebarMenu(allowedIds,isPropietario){
   
   // Corrección lógica de cortocircuito para arreglar el menú oculto
   const allowed=new Set((allowedIds && allowedIds.length > 0) ? allowedIds : ALL_MENU.map(m=>m.id));
+  // Filtrar por configuración global (módulos desactivados en Config)
+  if(APP.config && APP.config.menuConfig){
+    ALL_MENU.forEach(function(m){
+      if(m.id==='dashboard'||m.id==='configuracion') return;
+      if(APP.config.menuConfig[m.id]===false) allowed.delete(m.id);
+    });
+  }
   if(!isPropietario){
     allowed.delete('configuracion');
     if(!APP.user||!(APP.user.isPropietario||APP.user.puedeVerBitacora)){

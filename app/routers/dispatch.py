@@ -71,22 +71,28 @@ def get_user_from_token(token: str, db: Session):
         return None
 
 def make_user_response(u):
-    gas_role = DB_TO_GAS_ROLE.get(u.rol, 'Solo Lectura')
+    import ast
+    # Normalizar rol para lookup (acepta Admin, admin, ADMIN, etc.)
+    rol_lower = str(u.rol).lower().strip() if u.rol else ''
+    gas_role = DB_TO_GAS_ROLE.get(rol_lower, 'Solo Lectura')
     
-    # Si el usuario tiene un menú guardado, usar SOLO ese menú
-    # Si no tiene menú guardado, usar el menú por defecto de su rol
     if u.menu_permitido:
+        menu = None
         try:
             menu = json.loads(u.menu_permitido) if isinstance(u.menu_permitido, str) else u.menu_permitido
-            # Asegurar que siempre tenga al menos dashboard
-            if 'dashboard' not in menu:
-                menu.insert(0, 'dashboard')
         except:
+            try:
+                menu = ast.literal_eval(u.menu_permitido) if isinstance(u.menu_permitido, str) else None
+            except:
+                pass
+        if not isinstance(menu, list) or not menu:
             menu = list(ROL_DEFAULT_MENU.get(gas_role, ROL_DEFAULT_MENU['Solo Lectura']))
+        if 'dashboard' not in menu:
+            menu.insert(0, 'dashboard')
     else:
         menu = list(ROL_DEFAULT_MENU.get(gas_role, ROL_DEFAULT_MENU['Solo Lectura']))
     
-    return {"id": u.id, "nombre": u.nombre, "email": u.email, "rol": gas_role, "menu": menu, "isPropietario": u.rol == "propietario", "puedeVerBitacora": u.puede_ver_bitacora if hasattr(u, 'puede_ver_bitacora') else True, "PuedeEditar": "SI" if u.rol in ("propietario", "admin") else "NO", "inactMin": 60}
+    return {"id": u.id, "nombre": u.nombre, "email": u.email, "rol": gas_role, "menu": menu, "isPropietario": u.rol == "propietario", "puedeVerBitacora": u.puede_ver_bitacora if hasattr(u, 'puede_ver_bitacora') else True, "PuedeEditar": "SI" if rol_lower in ("propietario", "admin") else "NO", "inactMin": 60}
 
 def gas_to_db(gas_key, field_map):
     return field_map.get(gas_key)
@@ -307,7 +313,10 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                 for c in db.query(Configuracion).all():
                     configs[c.clave] = c.valor
             except: pass
-            return {"ok": True, "ssId": configs.get("ssId",""), "nombre": configs.get("nombre","REDIL"), "formUrl": configs.get("formUrl",""), "formUrlPublic": configs.get("formUrlPublic","https://redilrestauracion.totalappgt.online/formulario_digital.html"), "activo": True, "logo_url": configs.get("logo_url","https://i.postimg.cc/SsCZVFwp/Logo-Icono2.jpg"), "logoUrl": configs.get("logoUrl","https://i.postimg.cc/SsCZVFwp/Logo-Icono2.jpg"), "menuConfig": {m: True for m in ALL_MENU_IDS}, "ownerEmail": configs.get("ownerEmail","totalappgt@gmail.com"), "inactividadMinutos": int(configs.get("inactividadMinutos","60")), "metaGrupos": configs.get("metaGrupos","407"), "driveFolderId": configs.get("driveFolderId","1OHBSDIk7e1FOyC1tgkkAJoRb_nJh2CKM"), "botPdfFolderId": configs.get("botPdfFolderId",""), "pdf_id": configs.get("pdf_id",""), "gemini_api_key": configs.get("gemini_api_key",""), "openrouter_api_key": configs.get("openrouter_api_key",""), "deepseek_api_key": configs.get("deepseek_api_key",""), "telegram_token": configs.get("telegram_token",""), "telegram_chat_id": configs.get("telegram_chat_id",""), "whatsapp_soporte": configs.get("whatsapp_soporte","+502 5830-3182"), "nombre_soporte": configs.get("nombre_soporte","Total App GT - Daniel Martínez"), "titleMantenimiento": configs.get("titleMantenimiento","Sistema en Mantenimiento"), "msgMantenimiento": configs.get("msgMantenimiento","El sistema no está disponible en este momento."), "bot_habilitado": configs.get("bot_habilitado","True") == "True", "ai_provider": configs.get("ai_provider","auto"), "servicios_dinamicos": [], "cron_lunes": configs.get("cron_lunes","Lunes 6:30 PM"), "cron_jueves": configs.get("cron_jueves","Jueves 6:30 PM"), "cron_domTarde": configs.get("cron_domTarde","Domingo 10:30 AM"), "theme_colors": configs.get("theme_colors",""), "smtp_user": configs.get("smtp_user","totalappgt@gmail.com"), "smtp_password": configs.get("smtp_password","nnqx ifkr vecb imxq")}
+            menuConfig = {}
+            for m in ALL_MENU_IDS:
+                menuConfig[m] = configs.get(f"menu_mod_{m}", "SI") != "NO"
+            return {"ok": True, "ssId": configs.get("ssId",""), "nombre": configs.get("nombre","REDIL"), "formUrl": configs.get("formUrl",""), "formUrlPublic": configs.get("formUrlPublic","https://redilrestauracion.totalappgt.online/formulario_digital.html"), "activo": True, "logo_url": configs.get("logo_url","https://i.postimg.cc/SsCZVFwp/Logo-Icono2.jpg"), "logoUrl": configs.get("logoUrl","https://i.postimg.cc/SsCZVFwp/Logo-Icono2.jpg"), "menuConfig": menuConfig, "ownerEmail": configs.get("ownerEmail","totalappgt@gmail.com"), "inactividadMinutos": int(configs.get("inactividadMinutos","60")), "metaGrupos": configs.get("metaGrupos","407"), "driveFolderId": configs.get("driveFolderId","1OHBSDIk7e1FOyC1tgkkAJoRb_nJh2CKM"), "botPdfFolderId": configs.get("botPdfFolderId",""), "pdf_id": configs.get("pdf_id",""), "gemini_api_key": configs.get("gemini_api_key",""), "openrouter_api_key": configs.get("openrouter_api_key",""), "deepseek_api_key": configs.get("deepseek_api_key",""), "telegram_token": configs.get("telegram_token",""), "telegram_chat_id": configs.get("telegram_chat_id",""), "whatsapp_soporte": configs.get("whatsapp_soporte","+502 5830-3182"), "nombre_soporte": configs.get("nombre_soporte","Total App GT - Daniel Martínez"), "titleMantenimiento": configs.get("titleMantenimiento","Sistema en Mantenimiento"), "msgMantenimiento": configs.get("msgMantenimiento","El sistema no está disponible en este momento."), "bot_habilitado": configs.get("bot_habilitado","True") == "True", "ai_provider": configs.get("ai_provider","auto"), "servicios_dinamicos": [], "cron_lunes": configs.get("cron_lunes","Lunes 6:30 PM"), "cron_jueves": configs.get("cron_jueves","Jueves 6:30 PM"), "cron_domTarde": configs.get("cron_domTarde","Domingo 10:30 AM"), "theme_colors": configs.get("theme_colors",""), "smtp_user": configs.get("smtp_user","totalappgt@gmail.com"), "smtp_password": configs.get("smtp_password","nnqx ifkr vecb imxq")}
 
         if action == "saveConfig":
             for key, val in payload.items():
@@ -494,6 +503,12 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             if exist and (not item_id or int(exist.id) != int(item_id)):
                 return {"ok": False, "msg": "Ya existe un usuario con el email: " + email}
             data = payload_to_kwargs(USUARIO_MAP, payload)
+            # Normalizar rol a minúscula
+            if "rol" in data and data["rol"]:
+                data["rol"] = str(data["rol"]).lower().strip()
+            # Convertir MenuPermitido a JSON string si es lista
+            if "menu_permitido" in data and isinstance(data["menu_permitido"], list):
+                data["menu_permitido"] = json.dumps(data["menu_permitido"])
             password = payload.get("Password", "")
             if password: data["password"] = bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
             # Convertir strings SI/NO a booleanos
