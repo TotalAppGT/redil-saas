@@ -7,6 +7,7 @@ import bcrypt
 import os
 from datetime import datetime, timedelta
 import json
+from sqlalchemy import func
 
 router = APIRouter()
 SECRET = os.getenv("JWT_SECRET", "redil_secret_key_2026")
@@ -99,8 +100,8 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             lideres = db.query(Hermano).filter(Hermano.codigo_lead != None).count()
             reportes_mes = db.query(Reporte).count()
             pendientes = db.query(Reporte).filter(Reporte.ofrenda_recibida.in_(["Pendiente", ""])).count()
-            asistencia_total = db.query(db.func.coalesce(db.func.sum(Reporte.asistencia), 0)).scalar()
-            of_total = float(db.query(db.func.coalesce(db.func.sum(Reporte.ofrenda_total), 0)).scalar())
+            asistencia_total = db.query(func.coalesce(func.sum(Reporte.asistencia), 0)).scalar()
+            of_total = float(db.query(func.coalesce(func.sum(Reporte.ofrenda_total), 0)).scalar())
             seg_total = db.query(Seguimiento).count()
             return {"ok": True,
                 "lideres": lideres,
