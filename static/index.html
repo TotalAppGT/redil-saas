@@ -409,14 +409,8 @@ tbody tr:last-child{border-bottom:none}
 <div id="gLoad" class="g-load"><div class="g-spinner"></div><span>Procesando...</span></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-  import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-auth.js";
-  const firebaseConfig = {apiKey:"AIzaSyBtdzASSqHz2oirxJGl6deGkfIUBMUnO_c",authDomain:"totalappgt-d15b9.firebaseapp.com",projectId:"totalappgt-d15b9",storageBucket:"totalappgt-d15b9.firebasestorage.app",messagingSenderId:"776610472252",appId:"1:776610472252:web:cecc4a563bb4360d18be39"};
-  const firebaseApp = initializeApp(firebaseConfig);
-  window.firebaseAuth = getAuth(firebaseApp);
-  window.firebaseGoogleProvider = new GoogleAuthProvider();
-</script>
+<script src="https://www.gstatic.com/firebasejs/11.6.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/11.6.0/firebase-auth-compat.js"></script>
 <script src="js_main.html"></script>
 </body>
 </html>
