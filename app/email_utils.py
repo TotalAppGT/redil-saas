@@ -1,29 +1,39 @@
-import smtplib, os
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email import encoders
+import httpx
+import os
 
-SMTP_HOST = "smtp.gmail.com"
-SMTP_PORT = 465
+RESEND_API_KEY = os.getenv("RESEND_API_KEY", "")
+RESEND_FROM = os.getenv("RESEND_FROM", "REDIL Restauración <no-reply@totalappgt.online>")
+RESEND_API_URL = "https://api.resend.com/emails"
 
 def send_email(to_emails, subject, html_body, attachments=None, smtp_user=None, smtp_password=None):
-    user = smtp_user or os.getenv("SMTP_USER", "totalappgt@gmail.com")
-    password = smtp_password or os.getenv("SMTP_PASSWORD", "")
-    if not password:
-        raise ValueError("SMTP_PASSWORD no configurado")
-    msg = MIMEMultipart("alternative")
-    msg["From"] = user
-    msg["To"] = ", ".join(to_emails)
-    msg["Subject"] = subject
-    msg.attach(MIMEText(html_body, "html"))
-    if attachments:
-        for att_data in attachments:
-            part = MIMEBase("application", "octet-stream")
-            part.set_payload(att_data["content"])
-            encoders.encode_base64(part)
-            part.add_header("Content-Disposition", f'attachment; filename="{att_data["filename"]}"')
-            msg.attach(part)
-    with smtplib.SMTP_SSL(SMTP_HOST, SMTP_PORT) as server:
-        server.login(user, password)
-        server.sendmail(user, to_emails, msg.as_string())
+    if not isinstance(to_emails, list):
+        to_emails = [to_emails]
+    try:
+        payload = {
+            "from": RESEND_FROM,
+            "to": to_emails,
+            "subject": subject,
+            "html": html_body
+        }
+        if attachments:
+            payload["attachments"] = []
+            for att in attachments:
+                payload["attachments"].append({
+                    "filename": att.get("filename", "file.pdf"),
+                    "content": att.get("content", "")
+                })
+        resp = httpx.post(
+            RESEND_API_URL,
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {RESEND_API_KEY}",
+                "Content-Type": "application/json"
+            },
+            timeout=30
+        )
+        if resp.status_code >= 400:
+            raise Exception(f"Resend error {resp.status_code}: {resp.text}")
+        return True
+    except Exception as e:
+        print(f"❌ Email error: {e}")
+        raise e

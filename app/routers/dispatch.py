@@ -163,7 +163,7 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                 return {"ok": False, "msg": "Token de Firebase requerido"}
             try:
                 # Verify Firebase ID token via REST API
-                api_key = "AIzaSyBtdzASSqHz2oirxJGl6deGkfIUBMUnO_c"
+                api_key = os.getenv("FIREBASE_API_KEY", "")
                 resp = requests.post(
                     f"https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={api_key}",
                     json={"idToken": id_token},
@@ -368,11 +368,11 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             menuConfig = {}
             for m in ALL_MENU_IDS:
                 menuConfig[m] = configs.get(f"menu_mod_{m}", "SI") != "NO"
-            return {"ok": True, "ssId": configs.get("ssId",""), "nombre": configs.get("nombre","REDIL"), "formUrl": configs.get("formUrl",""), "formUrlPublic": configs.get("formUrlPublic","https://redilrestauracion.totalappgt.online/formulario_digital.html"), "activo": True, "logo_url": configs.get("logo_url","https://i.postimg.cc/SsCZVFwp/Logo-Icono2.jpg"), "logoUrl": configs.get("logoUrl","https://i.postimg.cc/SsCZVFwp/Logo-Icono2.jpg"), "menuConfig": menuConfig, "ownerEmail": configs.get("ownerEmail","totalappgt@gmail.com"), "inactividadMinutos": int(configs.get("inactividadMinutos","60")), "metaGrupos": configs.get("metaGrupos","407"), "driveFolderId": configs.get("driveFolderId","1OHBSDIk7e1FOyC1tgkkAJoRb_nJh2CKM"), "botPdfFolderId": configs.get("botPdfFolderId",""), "pdf_id": configs.get("pdf_id",""), "gemini_api_key": configs.get("gemini_api_key",""), "openrouter_api_key": configs.get("openrouter_api_key",""), "deepseek_api_key": configs.get("deepseek_api_key",""), "telegram_token": configs.get("telegram_token","8996117068:AAGdNtpN8lChDf0Z2BeNjMs8rOkgRrtVCXs"), "telegram_chat_id": configs.get("telegram_chat_id",""),
-            "firebaseApiKey": configs.get("firebaseApiKey", os.getenv("FIREBASE_API_KEY", "AIzaSyBtdzASSqHz2oirxJGl6deGkfIUBMUnO_c")),
+            return {"ok": True, "ssId": configs.get("ssId",""), "nombre": configs.get("nombre","REDIL"), "formUrl": configs.get("formUrl",""), "formUrlPublic": configs.get("formUrlPublic","https://redilrestauracion.totalappgt.online/formulario_digital.html"), "activo": True, "logo_url": configs.get("logo_url","https://i.postimg.cc/SsCZVFwp/Logo-Icono2.jpg"), "logoUrl": configs.get("logoUrl","https://i.postimg.cc/SsCZVFwp/Logo-Icono2.jpg"), "menuConfig": menuConfig, "ownerEmail": configs.get("ownerEmail","totalappgt@gmail.com"), "inactividadMinutos": int(configs.get("inactividadMinutos","60")), "metaGrupos": configs.get("metaGrupos","407"), "driveFolderId": configs.get("driveFolderId","1OHBSDIk7e1FOyC1tgkkAJoRb_nJh2CKM"), "botPdfFolderId": configs.get("botPdfFolderId",""), "pdf_id": configs.get("pdf_id",""), "gemini_api_key": configs.get("gemini_api_key",""), "openrouter_api_key": configs.get("openrouter_api_key",""), "deepseek_api_key": configs.get("deepseek_api_key",""), "telegram_token": configs.get("telegram_token", os.getenv("TELEGRAM_TOKEN", "")), "telegram_chat_id": configs.get("telegram_chat_id", os.getenv("TELEGRAM_CHAT_ID", "")),
+            "firebaseApiKey": configs.get("firebaseApiKey", os.getenv("FIREBASE_API_KEY", "")),
             "firebaseAuthDomain": configs.get("firebaseAuthDomain", os.getenv("FIREBASE_AUTH_DOMAIN", "totalappgt-d15b9.firebaseapp.com")),
             "firebaseProjectId": configs.get("firebaseProjectId", os.getenv("FIREBASE_PROJECT_ID", "totalappgt-d15b9")),
-            "firebaseAppId": configs.get("firebaseAppId", os.getenv("FIREBASE_APP_ID", "1:776610472252:web:cecc4a563bb4360d18be39")), "whatsapp_soporte": configs.get("whatsapp_soporte","+502 5830-3182"), "nombre_soporte": configs.get("nombre_soporte","Total App GT - Daniel Martínez"), "titleMantenimiento": configs.get("titleMantenimiento","Sistema en Mantenimiento"), "msgMantenimiento": configs.get("msgMantenimiento","El sistema no está disponible en este momento."), "bot_habilitado": configs.get("bot_habilitado","True") == "True", "ai_provider": configs.get("ai_provider","auto"), "servicios_dinamicos": [], "cron_lunes": configs.get("cron_lunes","Lunes 6:30 PM"), "cron_jueves": configs.get("cron_jueves","Jueves 6:30 PM"), "cron_domTarde": configs.get("cron_domTarde","Domingo 10:30 AM"), "theme_colors": configs.get("theme_colors",""), "smtp_user": configs.get("smtp_user","totalappgt@gmail.com"), "smtp_password": configs.get("smtp_password","nnqx ifkr vecb imxq")}
+            "firebaseAppId": configs.get("firebaseAppId", os.getenv("FIREBASE_APP_ID", "")), "whatsapp_soporte": configs.get("whatsapp_soporte","+502 5830-3182"), "nombre_soporte": configs.get("nombre_soporte","Total App GT - Daniel Martínez"), "titleMantenimiento": configs.get("titleMantenimiento","Sistema en Mantenimiento"), "msgMantenimiento": configs.get("msgMantenimiento","El sistema no está disponible en este momento."), "bot_habilitado": configs.get("bot_habilitado","True") == "True", "ai_provider": configs.get("ai_provider","auto"), "servicios_dinamicos": [], "cron_lunes": configs.get("cron_lunes","Lunes 6:30 PM"), "cron_jueves": configs.get("cron_jueves","Jueves 6:30 PM"), "cron_domTarde": configs.get("cron_domTarde","Domingo 10:30 AM"), "theme_colors": configs.get("theme_colors",""), "smtp_user": configs.get("smtp_user","totalappgt@gmail.com"), "smtp_password": configs.get("smtp_password", os.getenv("RESEND_API_KEY",""))}
 
         if action == "saveConfig":
             for key, val in payload.items():
@@ -698,7 +698,7 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             for c in db.query(Configuracion).all(): cfg_dict[c.clave] = c.valor
             sys_nom = cfg_dict.get("nombre", "REDIL")
             smtp_user = cfg_dict.get("smtp_user", "totalappgt@gmail.com")
-            smtp_password = cfg_dict.get("smtp_password", "nnqx ifkr vecb imxq")
+            smtp_password = cfg_dict.get("smtp_password", os.getenv("RESEND_API_KEY",""))
             gen_records = db.query(GeneradorReporte).filter(GeneradorReporte.no_serie.in_(series)).all()
             if not gen_records: return {"ok": False, "msg": f"No se encontraron reportes: {','.join(series)}"}
             html_parts = []
@@ -832,7 +832,7 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             for c in db.query(Configuracion).all(): cfg_dict[c.clave] = c.valor
             sys_nom = cfg_dict.get("nombre", "REDIL")
             smtp_user = cfg_dict.get("smtp_user", "totalappgt@gmail.com")
-            smtp_password = cfg_dict.get("smtp_password", "nnqx ifkr vecb imxq")
+            smtp_password = cfg_dict.get("smtp_password", os.getenv("RESEND_API_KEY",""))
             subj = asunto or f"{sys_nom} · Informe · {datetime.now().strftime('%d/%m/%Y')}"
             full_html = f'''<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:Arial,sans-serif;padding:20px">
               <div style="max-width:600px;margin:0 auto"><h2 style="color:#1a3a5c">{sys_nom}</h2>
@@ -1043,6 +1043,47 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                 return {"ok": True, "html": html_content, "noSerie": no_serie, "pdfUrl": pdf_url}
             except Exception as e:
                 return {"ok": False, "msg": f"Error guardando PDF: {str(e)}"}
+
+        # ── WHATSAPP ──
+        if action == "sendWhatsapp":
+            from app.whatsapp_utils import send_whatsapp
+            to_num = payload.get("to", "")
+            msg = payload.get("message", "")
+            if not to_num or not msg:
+                return {"ok": False, "msg": "Número y mensaje requeridos"}
+            result = send_whatsapp(to_num, msg)
+            return result
+
+        # ── RECURRENTE (PAGOS) ──
+        if action == "getPlanes":
+            from app.recurrente_utils import listar_planes
+            return listar_planes()
+
+        if action == "crearCheckout":
+            from app.recurrente_utils import crear_checkout
+            return crear_checkout(
+                payload.get("plan_id", ""),
+                payload.get("success_url", ""),
+                payload.get("cancel_url", ""),
+                payload.get("email", "")
+            )
+
+        # ── ENVÍO DE CORREO MANUAL ──
+        if action == "enviarCorreo":
+            dest = payload.get("destinatarios", "")
+            asunto = payload.get("asunto", "")
+            cuerpo = payload.get("cuerpo", "")
+            emails_list = [e.strip() for e in dest.replace(";", ",").split(",") if e.strip()]
+            if not emails_list: return {"ok": False, "msg": "Sin destinatarios"}
+            cfg_dict = {}
+            for c in db.query(Configuracion).all(): cfg_dict[c.clave] = c.valor
+            sys_nom = cfg_dict.get("nombre", "REDIL")
+            full_html = f'<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="font-family:Arial,sans-serif;padding:20px"><div style="max-width:600px;margin:0 auto"><h2 style="color:#1a3a5c">{esc(sys_nom)}</h2>{cuerpo or "<p>Mensaje del sistema REDIL.</p>"}</div></body></html>'
+            try:
+                send_email(emails_list, asunto or f"{sys_nom} · Comunicado", full_html)
+                return {"ok": True, "msg": f"Correo enviado a {len(emails_list)} destinatario(s)"}
+            except Exception as e:
+                return {"ok": False, "msg": str(e)}
 
         return {"ok": False, "msg": f"Acción '{action}' no implementada en API"}
 
