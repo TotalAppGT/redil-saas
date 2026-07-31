@@ -191,7 +191,7 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                     nombre=name,
                     email=email,
                     password=bcrypt.hashpw(os.urandom(16).hex().encode(), bcrypt.gensalt()).decode(),
-                    rol="lider",
+                    rol="admin",
                     activo=True
                 )
                 db.add(u)
