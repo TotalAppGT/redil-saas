@@ -157,6 +157,50 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             new_token = jwt.encode({"id": u.id, "email": u.email, "rol": u.rol, "exp": datetime.utcnow() + timedelta(days=7)}, SECRET, algorithm="HS256")
             return {"ok": True, "token": new_token, "user": make_user_response(u)}
 
+        if action == "firebaseLogin":
+            id_token = payload.get("idToken", "")
+            if not id_token:
+                return {"ok": False, "msg": "Token de Firebase requerido"}
+            try:
+                # Verify Firebase ID token via REST API
+                api_key = "AIzaSyBtdzASSqHz2oirxJGl6deGkfIUBMUnO_c"
+                resp = requests.post(
+                    f"https://identitytoolkit.googleapis.com/v1/accounts:lookup?key={api_key}",
+                    json={"idToken": id_token},
+                    timeout=10
+                )
+                if resp.status_code != 200:
+                    return {"ok": False, "msg": "Token de Firebase inválido"}
+                data = resp.json()
+                users = data.get("users", [])
+                if not users:
+                    return {"ok": False, "msg": "Usuario no encontrado en Firebase"}
+                firebase_user = users[0]
+                email = firebase_user.get("email", "").lower()
+                name = firebase_user.get("displayName", email.split("@")[0])
+                if not email:
+                    return {"ok": False, "msg": "Email no disponible en Firebase"}
+            except Exception as e:
+                return {"ok": False, "msg": f"Error verificando Firebase: {str(e)}"}
+
+            # Buscar usuario en la DB local
+            u = db.query(Usuario).filter(Usuario.email == email).first()
+            if not u:
+                # Auto-registrar usuario de Firebase
+                u = Usuario(
+                    nombre=name,
+                    email=email,
+                    password=bcrypt.hashpw(os.urandom(16).hex().encode(), bcrypt.gensalt()).decode(),
+                    rol="lider",
+                    activo=True
+                )
+                db.add(u)
+                db.commit()
+            if not u.activo:
+                return {"ok": False, "msg": "Usuario inactivo. Contacta al administrador."}
+            new_token = jwt.encode({"id": u.id, "email": u.email, "rol": u.rol, "exp": datetime.utcnow() + timedelta(days=7)}, SECRET, algorithm="HS256")
+            return {"ok": True, "token": new_token, "user": make_user_response(u)}
+
         if action == "validateSession":
             u = get_user_from_token(payload.get("token", ""), db)
             if u: return {"ok": True, "user": make_user_response(u)}
