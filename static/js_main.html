@@ -148,26 +148,24 @@ setupActivityTracking();
 function initFirebase(){
   if(typeof firebase==='undefined') return;
   if(window._fbReady) return;
-  var cfg=APP.config||{};
-  if(!cfg.firebaseApiKey) return;
   try {
     firebase.initializeApp({
-      apiKey: cfg.firebaseApiKey,
-      authDomain: cfg.firebaseAuthDomain||'totalappgt-d15b9.firebaseapp.com',
-      projectId: cfg.firebaseProjectId||'totalappgt-d15b9',
-      appId: cfg.firebaseAppId||'1:776610472252:web:cecc4a563bb4360d18be39'
+      apiKey: 'AIzaSyBtdzASSqHz2oirxJGl6deGkfIUBMUnO_c',
+      authDomain: 'totalappgt-d15b9.firebaseapp.com',
+      projectId: 'totalappgt-d15b9',
+      appId: '1:776610472252:web:cecc4a563bb4360d18be39'
     });
-    window._fbReady=true;
   } catch(e) {
-    if(e.code!=='app/duplicate-app') console.error('Firebase init:', e);
-    window._fbReady=true;
+    if(e.code!=='app/duplicate-app'){console.error('Firebase init:',e);return;}
   }
+  window._fbReady=true;
 }
 
 async function firebaseGoogleLogin(){
   var btn=document.getElementById('btnGoogle');
   var errEl=document.getElementById('loginErr');
-  if(typeof firebase==='undefined'){if(errEl)errEl.textContent='Firebase no disponible. Usa email/contraseña.';return;}
+  initFirebase();
+  if(typeof firebase==='undefined'||!window._fbReady){if(errEl)errEl.textContent='Firebase no disponible. Usa email/contraseña.';return;}
   try {
     if(errEl)errEl.textContent='';
     if(btn){btn.disabled=true;btn.innerHTML='<i class="fas fa-circle-notch fa-spin"></i> Conectando...';}
