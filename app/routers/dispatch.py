@@ -49,7 +49,7 @@ HERMANO_MAP = {"ID": "id", "CodigoL": "codigo_lead", "NombreL": "nombre", "Distr
 SUPERVISOR_MAP = {"ID": "id", "CodigoSup": "codigo_sup", "NombreSup": "nombre_sup", "Distrito": "distrito", "Zona": "zona", "Area": "area", "Sector": "sector", "Telefono": "telefono", "Email": "email", "Activo": "activo"}
 PASTOR_MAP = {"ID": "id", "CodigoPastor": "codigo_pastor", "NombrePastor": "nombre_pastor", "Distrito": "distrito", "Zona": "zona", "Telefono": "telefono", "Email": "email", "Activo": "activo"}
 AYUDA_PASTOR_MAP = {"ID": "id", "CodigoAyuda": "codigo_ayuda", "NombreAyuda": "nombre_ayuda", "Distrito": "distrito", "Zona": "zona", "Area": "area", "Telefono": "telefono", "Email": "email", "Activo": "activo"}
-CONTACTO_MAP = {"ID": "id", "Nombre": "nombre", "Correo": "email", "Telefono": "telefono", "Direccion": "direccion", "Notas": "notas", "Activo": "activo"}
+CONTACTO_MAP = {"ID": "id", "Nombre": "nombre", "Correo": "email", "WhatsApp": "telefono", "Telefono": "telefono", "Direccion": "direccion", "Notas": "notas", "Activo": "activo"}
 DIEZMO_MAP = {"ID": "id", "Fecha": "fecha", "Nombre": "nombre", "Telefono": "telefono", "Grupo": "grupo", "Tipo": "tipo", "MontoQ": "monto", "Descripcion": "observaciones"}
 INVENTARIO_MAP = {"ID": "id", "Articulo": "nombre", "Categoria": "categoria", "Cantidad": "cantidad", "Unidad": "unidad", "Estado": "estado", "Ubicacion": "ubicacion", "ValorQ": "valor_q", "Observaciones": "observaciones"}
 INSUMO_MAP = {"ID": "id", "Articulo": "nombre", "Categoria": "categoria", "Cantidad": "cantidad", "Unidad": "unidad", "PrecioUnitarioQ": "precio_unitario_q", "StockMinimo": "stock_minimo", "Proveedor": "proveedor", "Observaciones": "observaciones"}
@@ -597,7 +597,6 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             return {"ok": True, "url": url}
 
         if action == "getFormHtml":
-            import os
             # Buscar en múltiples ubicaciones posibles
             base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
             possible_paths = [
@@ -1049,13 +1048,29 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
 
         # ── WHATSAPP ──
         if action == "sendWhatsapp":
-            from app.whatsapp_utils import send_whatsapp
+            from app.whatsapp_utils import send_whatsapp, send_whatsapp_bulk
             to_num = payload.get("to", "")
             msg = payload.get("message", "")
-            if not to_num or not msg:
-                return {"ok": False, "msg": "Número y mensaje requeridos"}
-            result = send_whatsapp(to_num, msg)
+            if not msg:
+                return {"ok": False, "msg": "Mensaje requerido"}
+            # Envío a múltiples números
+            if to_num and "," in to_num:
+                nums = [n.strip() for n in to_num.split(",") if n.strip()]
+                result = send_whatsapp_bulk(nums, msg)
+            elif to_num:
+                result = send_whatsapp(to_num, msg)
+            else:
+                return {"ok": False, "msg": "Número requerido"}
             return result
+
+        # ── ENVÍO MASIVO WHATSAPP (desde Centro Envíos) ──
+        if action == "enviarWhatsappMasivo":
+            from app.whatsapp_utils import send_whatsapp_bulk
+            numbers = payload.get("numeros", [])
+            msg = payload.get("mensaje", "")
+            if not numbers or not msg:
+                return {"ok": False, "msg": "Números y mensaje requeridos"}
+            return send_whatsapp_bulk(numbers, msg)
 
         # ── RECURRENTE (PAGOS) ──
         if action == "getPlanes":

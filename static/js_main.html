@@ -2659,6 +2659,26 @@ function renderEnvio(el){
           <button class="btn btn-pr" onclick="enviarRep()"><i class="fas fa-paper-plane"></i> Enviar Reportes</button>
         </div>
       </div>
+      <!-- WHATSAPP -->
+      <div class="card" style="border-left:4px solid #25D366">
+        <div class="ct" style="display:flex;align-items:center;gap:8px">
+          <i class="fab fa-whatsapp" style="color:#25D366;font-size:18px"></i> Enviar por WhatsApp
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div class="fgg"><label>Números (separados por coma)</label>
+            <input class="fc" id="wa_numeros" placeholder="50212345678, 50287654321">
+          </div>
+          <div class="fgg"><label>Mensaje</label>
+            <textarea class="fc" id="wa_mensaje" rows="2">${appNom} · Informe</textarea>
+          </div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap">
+            <button class="btn" style="background:#25D366;color:#fff" onclick="enviarWhatsapp()"><i class="fab fa-whatsapp"></i> Enviar WhatsApp</button>
+          </div>
+        </div>
+        <div style="margin-top:6px;font-size:10px;color:var(--tx3)">
+          <i class="fas fa-info-circle"></i> Los contactos con WhatsApp aparecen abajo. Clic para agregar al campo de números.
+        </div>
+      </div>
       <!-- CONTACTOS -->
       <div class="card">
         <div class="ct" style="display:flex;justify-content:space-between;align-items:center">
@@ -2862,6 +2882,19 @@ function removeDestTag(btn,email){
   hiddenInput.value=[...container.querySelectorAll('.dest-tag')].map(t=>t.dataset.email).join(', ');
 }
 function addDest(email){addDestTagDirect(email);}
+function enviarWhatsapp(){
+  var nums = g('wa_numeros').trim();
+  var msg = g('wa_mensaje').trim();
+  if(!nums){toast('Ingresa al menos un número','wa');return;}
+  if(!msg){toast('Ingresa un mensaje','wa');return;}
+  var numeros = nums.split(',').map(function(n){return n.trim();}).filter(Boolean);
+  loading(true);
+  call('enviarWhatsappMasivo',{numeros:numeros,mensaje:msg},function(_,res){
+    loading(false);
+    if(res&&res.ok) toast('WhatsApp: '+res.msg,'ok',5000);
+    else toast('Error: '+(res&&res.msg||'Fallido'),'er',6000);
+  });
+}
 function enviarRep(){
   // Obtener destinatarios del campo hidden
   const dest=(document.getElementById('env_dest')||{}).value||'';
@@ -2896,9 +2929,9 @@ function enviarRep(){
 
 function renderContactos(el){el.innerHTML=`<div class="mod-hdr"><h2><i class="fas fa-address-book"></i> Tabla de Contactos</h2><div class="mod-acts"><button class="btn btn-ok btn-sm" onclick="newCnt()"><i class="fas fa-plus"></i> Nuevo</button><button class="btn btn-in btn-sm" onclick="exportXLS(_cnt,'Contactos','contactos')"><i class="fas fa-file-excel"></i> Excel</button></div></div><div class="card"><div class="fr"><div class="sb2"><i class="fas fa-search"></i><input type="text" placeholder="Buscar..." oninput="filterCnt(this.value)"></div></div><div class="tw"><table><thead><tr><th>ID</th><th>Nombre</th><th>Correo</th><th>Acciones</th></tr></thead><tbody id="cntTb"></tbody></table></div></div>`;loadCnt();}
 function loadCnt(){call('getContactos',{},(_, d)=>{_cnt=Array.isArray(d)?d:[];APP.contactos=_cnt;renderCntTb(_cnt);});}
-function renderCntTb(d){const tb=document.getElementById('cntTb');if(!tb)return;if(!d.length){tb.innerHTML=`<tr><td colspan="4"><div class="empty-r"><i class="fas fa-address-book"></i><p>Sin contactos</p></div></td></tr>`;return;}tb.innerHTML=d.map(c=>`<tr><td>${esc(c['IDContacto'])}</td><td><b>${esc(c['Nombre'])}</b></td><td><a href="mailto:${esc(c['Correo'])}" style="color:var(--pr2)">${esc(c['Correo'])}</a></td><td><div class="ab"><button class="ab-btn ab-ed" onclick="editCnt('${esc(c['IDContacto'])}')"><i class="fas fa-edit"></i></button><button class="ab-btn ab-del" onclick="delCnt('${esc(c['IDContacto'])}')"><i class="fas fa-trash"></i></button></div></td></tr>`).join('');}
+function renderCntTb(d){const tb=document.getElementById('cntTb');if(!tb)return;if(!d.length){tb.innerHTML=`<tr><td colspan="5"><div class="empty-r"><i class="fas fa-address-book"></i><p>Sin contactos</p></div></td></tr>`;return;}tb.innerHTML=d.map(c=>`<tr><td>${esc(c['IDContacto'])}</td><td><b>${esc(c['Nombre'])}</b></td><td><a href="mailto:${esc(c['Correo'])}" style="color:var(--pr2)">${esc(c['Correo'])}</a></td><td>${c['WhatsApp']||c['Telefono']?`<span style="color:#25D366;font-size:11px"><i class="fab fa-whatsapp"></i> ${esc(c['WhatsApp']||c['Telefono'])}</span>`:'—'}</td><td><div class="ab"><button class="ab-btn ab-ed" onclick="editCnt('${esc(c['IDContacto'])}')"><i class="fas fa-edit"></i></button><button class="ab-btn ab-del" onclick="delCnt('${esc(c['IDContacto'])}')"><i class="fas fa-trash"></i></button></div></td></tr>`).join('');}
 function filterCnt(q){renderCntTb(_cnt.filter(c=>JSON.stringify(c).toLowerCase().includes(q.toLowerCase())));}
-function cntForm(c){c=c||{};return `<div class="fg2"><div class="fgg"><label>Nombre <span class="req">*</span></label><input class="fc" id="cf_n" value="${esc(c['Nombre']||'')}"></div><div class="fgg"><label>Correo <span class="req">*</span></label><input class="fc" type="email" id="cf_c" value="${esc(c['Correo']||'')}"></div></div>`;}
+function cntForm(c){c=c||{};return `<div class="fg2"><div class="fgg"><label>Nombre <span class="req">*</span></label><input class="fc" id="cf_n" value="${esc(c['Nombre']||'')}"></div><div class="fgg"><label>Correo</label><input class="fc" type="email" id="cf_c" value="${esc(c['Correo']||'')}"></div><div class="fgg"><label>WhatsApp</label><input class="fc" id="cf_w" value="${esc(c['WhatsApp']||c['Telefono']||'')}" placeholder="50212345678"></div></div>`;}
 function newCnt(){openModal('Nuevo Contacto',cntForm(),mFoot('saveCnt'));}
 function editCnt(id){
   const c=_cnt.find(x=>x['IDContacto']===id);
@@ -2908,7 +2941,7 @@ function editCnt(id){
     `<button class="btn btn-ol" onclick="closeModal()">Cancelar</button><button class="btn btn-pr" onclick="saveCnt('${esc(id)}')"><i class="fas fa-save"></i> Actualizar</button>`
   );
 }
-function saveCnt(id){const data={'IDContacto':id||'','Nombre':g('cf_n'),'Correo':g('cf_c')};if(!data['Nombre']||!data['Correo']){toast('Nombre y correo requeridos','wa');return;}loading(true);call('saveContacto',data,(_,res)=>{loading(false);if(res?.ok){toast('Guardado','ok');closeModal();loadCnt();}});}
+function saveCnt(id){const data={'IDContacto':id||'','Nombre':g('cf_n'),'Correo':g('cf_c'),'WhatsApp':g('cf_w')};if(!data['Nombre']){toast('Nombre requerido','wa');return;}loading(true);call('saveContacto',data,(_,res)=>{loading(false);if(res?.ok){toast('Guardado','ok');closeModal();loadCnt();}});}
 function delCnt(id){customConfirm('¿Estás seguro de eliminar este contacto?',function(ok){if(ok){loading(true);call('deleteContacto',{id},(_,res)=>{loading(false);if(res?.ok){toast('Eliminado','ok');loadCnt();}});}},{icon:'fa-trash-alt',color:'#e74c3c',danger:true});}
 
 // ══════════════════════════════════════════════════════════
