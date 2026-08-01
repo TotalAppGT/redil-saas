@@ -2665,18 +2665,17 @@ function renderEnvio(el){
           <i class="fab fa-whatsapp" style="color:#25D366;font-size:18px"></i> Enviar por WhatsApp
         </div>
         <div style="display:flex;flex-direction:column;gap:10px">
-          <div class="fgg"><label>Números (separados por coma)</label>
-            <input class="fc" id="wa_numeros" placeholder="50212345678, 50287654321">
+          <div style="font-size:11px;font-weight:700;color:var(--tx2)"><i class="fab fa-whatsapp"></i> Destinatarios <span class="req">*</span></div>
+          <div id="wa_dest_tags" style="background:var(--bg3);border-radius:8px;padding:8px;min-height:38px;border:1.5px solid var(--brd);display:flex;flex-wrap:wrap;gap:5px;cursor:text" onclick="document.getElementById('wa_dest_input').focus()">
+            <input type="text" id="wa_dest_input" placeholder="Número o grupo + Enter" style="border:none;background:transparent;outline:none;font-size:12px;flex:1;min-width:140px" onkeydown="addWaTag(event)" onblur="addWaTag({key:'Tab'})">
           </div>
+          <input type="hidden" id="wa_dest">
           <div class="fgg"><label>Mensaje</label>
             <textarea class="fc" id="wa_mensaje" rows="2">${appNom} · Informe</textarea>
           </div>
           <div style="display:flex;gap:6px;flex-wrap:wrap">
             <button class="btn" style="background:#25D366;color:#fff" onclick="enviarWhatsapp()"><i class="fab fa-whatsapp"></i> Enviar WhatsApp</button>
           </div>
-        </div>
-        <div style="margin-top:6px;font-size:10px;color:var(--tx3)">
-          <i class="fas fa-info-circle"></i> Los contactos con WhatsApp aparecen abajo. Clic para agregar al campo de números.
         </div>
       </div>
       <!-- CONTACTOS -->
@@ -2685,7 +2684,7 @@ function renderEnvio(el){
           <span><i class="fas fa-address-book"></i> Contactos — clic para agregar</span>
           <button class="btn btn-ok btn-sm" onclick="nav('contactos')"><i class="fas fa-plus"></i></button>
         </div>
-        <div id="envCnts" style="max-height:200px;overflow-y:auto">
+        <div id="envCnts" style="max-height:260px;overflow-y:auto">
           <div class="empty-r" style="padding:10px"><i class="fas fa-circle-notch fa-spin"></i></div>
         </div>
       </div>
@@ -2818,31 +2817,32 @@ function deselectAllEnvRep(){
 
 function fillEnvContacts(el){
   if(!el)return;
-  const cnts=APP.contactos.filter(c=>c['Correo']);
-  if(!cnts.length){
-    el.innerHTML='';
-    const msg=document.createElement('div');
-    msg.className='empty-r';
-    msg.style.padding='12px';
-    msg.innerHTML='<i class="fas fa-address-book"></i><p>Sin contactos</p>';
-    const btn=document.createElement('button');
-    btn.className='btn btn-ok btn-sm';
-    btn.style.marginTop='8px';
-    btn.textContent='+ Agregar contacto';
-    btn.onclick=()=>nav('contactos');
-    msg.appendChild(btn);
-    el.appendChild(msg);
+  const emailCnts = APP.contactos.filter(c=>c['Correo']);
+  const waCnts = APP.contactos.filter(c=>(c['WhatsApp']||c['Telefono']));
+  const all = [...new Set([...emailCnts, ...waCnts])];
+  if(!all.length){
+    el.innerHTML='<div class="empty-r" style="padding:12px"><i class="fas fa-address-book"></i><p>Sin contactos. <a onclick="nav(\'contactos\')" style="color:var(--pr2);cursor:pointer;font-weight:700">Agregar</a></p></div>';
     return;
   }
   el.innerHTML='';
-  cnts.forEach(c=>{
-    const div=document.createElement('div');
+  all.forEach(c=>{
+    var hasEmail = c['Correo'];
+    var hasWA = c['WhatsApp']||c['Telefono'];
+    var div=document.createElement('div');
     div.className='ri';
-    div.style.cssText='cursor:pointer;padding:6px 8px;border-radius:6px;transition:.15s';
-    div.onmouseenter=()=>div.style.background='var(--bg3)';
-    div.onmouseleave=()=>div.style.background='';
-    div.onclick=()=>addDestTagDirect(c['Correo']);
-    div.innerHTML='<div class="rdot" style="background:var(--ok)"></div><div class="rinfo"><div class="rn">'+esc(c['Nombre'])+'</div><div class="rm">'+esc(c['Correo'])+'</div></div><i class="fas fa-plus-circle" style="color:var(--ok);font-size:14px"></i>';
+    div.style.cssText='cursor:pointer;padding:6px 8px;border-radius:6px;transition:.15s;display:flex;align-items:center;gap:8px';
+    div.onmouseenter=function(){div.style.background='var(--bg3)';};
+    div.onmouseleave=function(){div.style.background='';};
+    div.innerHTML='<div class="rinfo" style="flex:1"><div class="rn" style="font-size:11px">'+esc(c['Nombre'])+'</div><div style="display:flex;gap:8px;font-size:10px;align-items:center">';
+    if(hasEmail){
+      div.innerHTML+='<span style="color:var(--inf);cursor:pointer;font-weight:600" onclick="event.stopPropagation();addDestEmail(\''+esc(c['Correo'])+'\')"><i class="fas fa-envelope"></i> '+esc(c['Correo'])+'</span>';
+    }
+    if(hasWA){
+      var num = String(c['WhatsApp']||c['Telefono']||'').replace(/\D/g,'');
+      if(num.length===8) num='502'+num;
+      div.innerHTML+='<span style="color:#25D366;cursor:pointer;font-weight:600" onclick="event.stopPropagation();addWaCnt(\''+num+'\')"><i class="fab fa-whatsapp"></i> '+num+'</span>';
+    }
+    div.innerHTML+='</div></div>';
     el.appendChild(div);
   });
 }
@@ -2882,12 +2882,53 @@ function removeDestTag(btn,email){
   hiddenInput.value=[...container.querySelectorAll('.dest-tag')].map(t=>t.dataset.email).join(', ');
 }
 function addDest(email){addDestTagDirect(email);}
+// ── WHATSAPP TAGS ──
+function addWaTag(e){
+  if(e.key!=='Enter'&&e.key!=='Tab')return;
+  e.preventDefault();
+  var inp=document.getElementById('wa_dest_input');
+  var val=(inp.value||'').trim();
+  if(!val)return;
+  // Auto-prefijo 502 para números de 8 dígitos
+  if(/^\d{8}$/.test(val)) val='502'+val;
+  addWaTagDirect(val);
+  inp.value='';
+  inp.focus();
+}
+function addWaTagDirect(val){
+  var all=document.getElementById('wa_dest');
+  var tags=document.getElementById('wa_dest_tags');
+  if(!tags||!all)return;
+  var current=all.value?all.value.split(',').filter(Boolean):[];
+  if(current.indexOf(val)>=0)return;
+  current.push(val);
+  all.value=current.join(',');
+  var t=document.createElement('span');
+  t.className='dest-tag';
+  t.style.cssText='display:inline-flex;align-items:center;gap:4px;background:#dcf8c6;color:#075e54;padding:3px 8px;border-radius:20px;font-size:11px;font-weight:600';
+  t.innerHTML='<i class="fab fa-whatsapp"></i> '+val+'<button onclick="removeWaTag(this,\''+val+'\')" style="background:none;border:none;color:#075e54;cursor:pointer;font-size:14px;margin-left:2px">&times;</button>';
+  tags.insertBefore(t,document.getElementById('wa_dest_input'));
+}
+function removeWaTag(btn,val){
+  var all=document.getElementById('wa_dest');
+  var tags=document.getElementById('wa_dest_tags');
+  if(!all)return;
+  var current=all.value.split(',').filter(Boolean).filter(function(v){return v!==val;});
+  all.value=current.join(',');
+  btn.parentElement.remove();
+}
+function addWaCnt(val,type){
+  document.getElementById('wa_dest_input').value=val;
+  addWaTag({key:'Enter',preventDefault:function(){}});
+}
+function addDestEmail(email){addDestTagDirect(email);}
+
 function enviarWhatsapp(){
-  var nums = g('wa_numeros').trim();
+  var dest = (document.getElementById('wa_dest')||{}).value||'';
   var msg = g('wa_mensaje').trim();
-  if(!nums){toast('Ingresa al menos un número','wa');return;}
+  if(!dest){toast('Agrega al menos un destinatario','wa');return;}
   if(!msg){toast('Ingresa un mensaje','wa');return;}
-  var numeros = nums.split(',').map(function(n){return n.trim();}).filter(Boolean);
+  var numeros = dest.split(',').map(function(n){return n.trim();}).filter(Boolean);
   loading(true);
   call('enviarWhatsappMasivo',{numeros:numeros,mensaje:msg},function(_,res){
     loading(false);
