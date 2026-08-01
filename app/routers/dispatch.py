@@ -911,9 +911,10 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                 if cfg: sys_nom = cfg.valor
             except: pass
 
-            # Nomenclatura correlativa
-            count = db.query(GeneradorReporte).count() + 1
-            no_serie = f"RPT-{count:04d}"
+            # Nomenclatura: R+YYYYMMDD-correlativo
+            today_str = datetime.now().strftime('%Y%m%d')
+            count = db.query(GeneradorReporte).filter(GeneradorReporte.no_serie.like(f'R{today_str}-%')).count() + 1
+            no_serie = f"R{today_str}-{count:03d}"
             fecha_gen = datetime.now().strftime('%d/%m/%Y %I:%M %p')
             rango_str = f"{desde or 'Inicio'} -> {hasta or 'Hoy'}"
 
@@ -927,8 +928,10 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                     <td>{esc(str(r.fecha) if r.fecha else '')}</td>
                     <td>D{r.distrito or '?'} Z{r.zona or '?'}</td>
                     <td class="num">{r.asistencia or 0}</td>
-                    <td class="num">Q{of_val:.2f}</td>
-                    <td class="{'pend' if pend else 'ok'}">{'⏳ Pendiente' if pend else '✓ Recibida'}</td>
+                    <td class="num">Q{of_val:,.2f}</td>
+                    <td class="num">{r.hnos or 0}</td>
+                    <td class="num">{r.amigos or 0}</td>
+                    <td class="{'pend' if pend else 'ok'}">{'Pendiente' if pend else 'Recibida'}</td>
                 </tr>"""
 
             estado_pct = round(total_recibidas / total_grupos * 100, 1) if total_grupos else 0
@@ -939,58 +942,65 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
             <style>
             *{{margin:0;padding:0;box-sizing:border-box}}
-            @page{{size:letter;margin:0.4in}}
-            body{{font-family:'Inter',-apple-system,sans-serif;background:#fff;color:#1e2d3d;padding:0;font-size:10px}}
+            @page{{size:letter;margin:0.35in}}
+            body{{font-family:'Inter',-apple-system,sans-serif;background:#f5f6fa;color:#2d3436;padding:0;font-size:9px}}
             .rpt{{max-width:100%;margin:0 auto;background:#fff;overflow:hidden}}
-            .hdr{{background:linear-gradient(135deg,#1a3a5c,#2563a8);color:#fff;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
-            .hdr h1{{font-size:14px;font-weight:900;letter-spacing:-.2px}}
-            .hdr .sub{{font-size:9px;opacity:.75}}
-            .hdr .badge{{background:rgba(255,255,255,.15);padding:2px 10px;border-radius:99px;font-size:9px;font-weight:700}}
-            .hdr .rango{{font-size:10px;opacity:.85;font-weight:600}}
-            .kpis{{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:8px 12px;background:#f8faff;border-bottom:1px solid #e0e5ed;page-break-inside:avoid}}
-            .kpi{{background:#fff;border-radius:6px;padding:6px 10px;box-shadow:0 1px 3px rgba(0,0,0,.04);border-left:2px solid var(--kc,#1a3a5c)}}
-            .kpi .v{{font-size:14px;font-weight:900;color:#1a3a5c;line-height:1.1}}
-            .kpi .l{{font-size:7px;color:#6b7a8a;margin-top:2px;font-weight:600;text-transform:uppercase;letter-spacing:.2px}}
-            .kpi.o{{--kc:#e8a020}} .kpi.g{{--kc:#27ae60}} .kpi.r{{--kc:#e74c3c}} .kpi.p{{--kc:#8e44ad}} .kpi.t{{--kc:#0e6655}}
-            table{{width:100%;border-collapse:collapse;font-size:9px}}
-            thead th{{background:#1a3a5c;color:#fff;font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;padding:5px 6px;text-align:left;border-bottom:1px solid #1a3a5c;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
-            tbody td{{padding:4px 6px;border-bottom:1px solid #e8edf3;vertical-align:middle}}
-            tbody tr:nth-child(even){{background:#fafcff}}
-            .cod{{font-family:monospace;font-size:8px;background:#eef2f7;padding:1px 4px;border-radius:3px;color:#1a3a5c}}
-            .num{{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}}
-            .pend{{color:#e74c3c;font-weight:700;font-size:8px}}
-            .ok{{color:#27ae60;font-weight:700;font-size:8px}}
-            .footer{{padding:8px 12px;border-top:1px solid #e0e5ed;display:flex;justify-content:space-between;align-items:center;font-size:8px;color:#6b7a8a}}
-            .footer-brand .name{{font-size:9px;font-weight:800;color:#1a3a5c;line-height:1.1}}
-            .footer-brand .tag{{font-size:7px;font-weight:700;color:#9aaab8;letter-spacing:.2px}}
-            @media print{{body{{padding:0;background:#fff}}.rpt{{box-shadow:none}}.kpis{{page-break-inside:avoid}}}}
-            @media screen{{body{{background:#f0f4f8;padding:12px}}.rpt{{border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.08)}}}}
+            .hdr{{background:linear-gradient(135deg,#1a3a5c 0%,#2d6a9f 50%,#3b82c4 100%);color:#fff;padding:14px 18px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px;-webkit-print-color-adjust:exact}}
+            .hdr-l h1{{font-size:16px;font-weight:900;letter-spacing:-.3px;margin-bottom:2px}}
+            .hdr-l .sub{{font-size:8.5px;opacity:.85}}
+            .hdr-badge{{background:rgba(255,255,255,.2);padding:5px 12px;border-radius:20px;font-size:10px;font-weight:800;white-space:nowrap}}
+            .hdr-badge span{{opacity:.7;font-size:8px;font-weight:400;display:block}}
+            .kpis{{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:10px 16px;background:#f8f9fe;border-bottom:1px solid #eef0f8;page-break-inside:avoid}}
+            .kpi{{background:#fff;border-radius:8px;padding:8px 10px;box-shadow:0 1px 3px rgba(0,0,0,.05);border-left:2.5px solid var(--kc,#1a3a5c)}}
+            .kpi .v{{font-size:15px;font-weight:900;color:#1a3a5c;line-height:1.1;margin-bottom:1px}}
+            .kpi .l{{font-size:7.5px;color:#7f8c9b;font-weight:600;text-transform:uppercase;letter-spacing:.2px}}
+            .kpi.c0{{--kc:#6366f1}} .kpi.c1{{--kc:#f59e0b}} .kpi.c2{{--kc:#10b981}} .kpi.c3{{--kc:#3b82f6}} .kpi.c4{{--kc:#ef4444}} .kpi.c5{{--kc:#8b5cf6}} .kpi.c6{{--kc:#14b8a6}} .kpi.c7{{--kc:#f97316}}
+            table{{width:100%;border-collapse:collapse;font-size:8px}}
+            thead th{{background:#1a3a5c;color:#fff;font-size:7px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:5px 5px;text-align:center;border-right:1px solid rgba(255,255,255,.15);-webkit-print-color-adjust:exact}}
+            thead th:last-child{{border-right:none}}
+            thead th:first-child{{border-radius:0;padding-left:10px;text-align:left}}
+            tbody td{{padding:4px 5px;border-bottom:1px solid #f0f2f5;vertical-align:middle;text-align:center}}
+            tbody td:first-child{{text-align:left;padding-left:10px}}
+            tbody tr:nth-child(even){{background:#fafbfe}}
+            .cod{{font-family:monospace;font-size:7.5px;background:#eef0f8;padding:1px 5px;border-radius:4px;color:#2d6a9f;font-weight:700}}
+            .num{{font-weight:700;font-family:'Inter',sans-serif}}
+            .pend{{color:#dc2626;font-weight:700;background:#fef2f2;padding:2px 6px;border-radius:10px;font-size:7px}}
+            .ok{{color:#059669;font-weight:700;background:#ecfdf5;padding:2px 6px;border-radius:10px;font-size:7px}}
+            .footer{{padding:8px 16px;border-top:2px solid #eef0f8;display:flex;justify-content:space-between;align-items:center;font-size:7.5px;color:#7f8c9b}}
+            .footer b{{color:#1a3a5c}}
+            .footer-r{{text-align:right;line-height:1.3}}
+            @media print{{body{{background:#fff}}.rpt{{box-shadow:none}}.kpis{{page-break-inside:avoid}}}}
+            @media screen{{body{{background:#f0f4f8;padding:10px 8px}}.rpt{{border-radius:12px;box-shadow:0 4px 20px rgba(0,0,0,.08)}}}}
             </style></head><body>
             <div class="rpt">
                 <div class="hdr">
-                    <div><h1>{esc(sys_nom or 'REDIL')}</h1><div class="sub">{esc(tipo)} | {fecha_gen}</div></div>
-                    <div><span class="badge">📅 {rango_str}</span></div>
+                    <div class="hdr-l">
+                        <h1>{esc(sys_nom or 'REDIL')}</h1>
+                        <div class="sub">{esc(tipo)} — {rango_str} — {fecha_gen}</div>
+                    </div>
+                    <div class="hdr-badge">{no_serie}<span>{total_grupos} grupos</span></div>
                 </div>
                 <div class="kpis">
-                    <div class="kpi"><div class="v">{total_grupos}</div><div class="l">Grupos</div></div>
-                    <div class="kpi o"><div class="v">{total_asist}</div><div class="l">Asistencia Total</div></div>
-                    <div class="kpi g"><div class="v">Q{total_ofrenda:.2f}</div><div class="l">Ofrenda Total</div></div>
-                    <div class="kpi p"><div class="v">{total_hnos}</div><div class="l">Hermanos</div></div>
-                    <div class="kpi t"><div class="v">{total_amigos}</div><div class="l">Amigos</div></div>
-                    <div class="kpi"><div class="v">{total_ninos}</div><div class="l">Niños</div></div>
-                    <div class="kpi r"><div class="v">{total_pendientes}</div><div class="l">Pendientes</div></div>
-                    <div class="kpi g"><div class="v">{estado_pct}%</div><div class="l">Recibidas</div></div>
+                    <div class="kpi c0"><div class="v">{total_grupos}</div><div class="l">Grupos</div></div>
+                    <div class="kpi c1"><div class="v">{total_asist}</div><div class="l">Asistencia</div></div>
+                    <div class="kpi c2"><div class="v">Q{total_ofrenda:,.2f}</div><div class="l">Ofrenda</div></div>
+                    <div class="kpi c3"><div class="v">{estado_pct}%</div><div class="l">Recibidas</div></div>
+                    <div class="kpi c4"><div class="v">{total_pendientes}</div><div class="l">Pendientes</div></div>
+                    <div class="kpi c5"><div class="v">{total_hnos}</div><div class="l">Hermanos</div></div>
+                    <div class="kpi c6"><div class="v">{total_amigos}</div><div class="l">Amigos</div></div>
+                    <div class="kpi c7"><div class="v">{total_ninos}</div><div class="l">Niños</div></div>
                 </div>
                 <div class="tw">
                     <table>
-                        <thead><tr><th>Código</th><th>Líder</th><th>Fecha</th><th>D-Z</th><th class="num">AGF</th><th class="num">Ofrenda</th><th>Estado</th></tr></thead>
+                        <thead><tr><th>Código</th><th>Líder</th><th>Fecha</th><th>D-Z</th><th class="num">AGF</th><th class="num">Ofrenda</th><th class="num">Hnos</th><th class="num">Amg</th><th>Estado</th></tr></thead>
                         <tbody>{rows_html}</tbody>
                     </table>
                 </div>
                 <div class="footer">
-                    <div>Total: {total_grupos} grupos · Q{total_ofrenda:.2f}</div>
-                    <div class="footer-brand">
-                        <div><div class="name">Daniel Martínez</div><div class="tag">Total App GT</div></div>
+                    <div><b>{total_grupos}</b> reportes · <b>Q{total_ofrenda:,.2f}</b></div>
+                    <div class="footer-r">
+                        <div>Daniel Martínez</div>
+                        <div>Total App GT</div>
                     </div>
                 </div>
             </div>

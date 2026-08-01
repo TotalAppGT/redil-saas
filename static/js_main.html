@@ -2961,11 +2961,14 @@ function enviarWhatsapp(){
     var sysName = (APP.config&&APP.config.nombre)||'REDIL';
     var totalOf = selected.reduce(function(s,r){return s+Number(r['Total Ofrenda']||0);},0);
     var totalAsis = selected.reduce(function(s,r){return s+Number(r['Total Asistencia']||0);},0);
-    fullMsg = '\uD83D\uDCCA *'+sysName+'*\n\n';
+    var nombre = selected[0]['No Serie']||'Reporte';
+    fullMsg = '\uD83D\uDCF0 *INFORME '+sysName.toUpperCase()+'*\n\n';
     fullMsg += '\uD83D\uDCC5 Periodo: '+fmtD(selected[0]['Fecha Inicio'])+' \u2192 '+fmtD(selected[0]['Fecha Fin'])+'\n';
-    fullMsg += '\uD83D\uDCCB Reportes: '+selected.length+'\n';
-    fullMsg += '\uD83D\uDCB0 Ofrenda total: Q'+totalOf.toFixed(2)+'\n';
-    fullMsg += '\uD83D\uDE4F Asistencia: '+totalAsis+'\n';
+    fullMsg += '\uD83D\uDCCB Reporte: '+nombre+' ('+selected.length+' generados)\n';
+    fullMsg += '\uD83D\uDC65 Asistencia total: '+totalAsis+' personas\n';
+    fullMsg += '\uD83D\uDCB0 Ofrenda total: Q'+totalOf.toFixed(2)+'\n\n';
+    fullMsg += '\uD83D\uDCC4 _Documento PDF adjunto con el detalle completo._\n';
+    fullMsg += '_Dios le bendiga - '+sysName+'_';
     if(selected[0]['Archivo Generado']) pdfUrl = selected[0]['Archivo Generado'];
     // Convertir a URL absoluta si es relativa
     if(pdfUrl && !pdfUrl.startsWith('http')) pdfUrl = window.location.origin + pdfUrl;
