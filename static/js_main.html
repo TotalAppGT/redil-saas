@@ -2658,34 +2658,47 @@ function renderEnvio(el){
       <div class="empty-r" style="padding:16px"><i class="fas fa-circle-notch fa-spin"></i> Cargando reportes...</div>
     </div>
   </div>
-  <!-- COMPOSE ROW: Email | WhatsApp | Contacts -->
+  <!-- COMPOSE ROW: Email | WhatsApp -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
     <!-- EMAIL -->
     <div class="card">
-      <div class="ct"><i class="fas fa-envelope"></i> Componer Correo</div>
+      <div class="ct"><i class="fas fa-envelope"></i> Enviar por Correo</div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <div class="fgg"><label>Asunto</label><input class="fc" id="env_asunto" value="Informes ${appNom}"></div>
-        <div class="fgg"><label>Mensaje</label><textarea class="fc" id="env_cuerpo" rows="3">Buen día, adjunto los informes de ${appNom}. Que Dios le bendiga.</textarea></div>
+        <div class="fgg"><label>Mensaje</label><textarea class="fc" id="env_cuerpo" rows="3">Buen día, adjunto los informes de ${appNom}.\nQue Dios le bendiga.</textarea></div>
         <div style="font-size:11px;font-weight:700;color:var(--tx2)"><i class="fas fa-at"></i> Destinatarios</div>
-        <div id="env_dest_tags" style="background:var(--bg3);border-radius:8px;padding:8px;min-height:38px;border:1.5px solid var(--brd);display:flex;flex-wrap:wrap;gap:5px;cursor:text" onclick="document.getElementById('env_dest_input').focus()">
-          <input type="email" id="env_dest_input" placeholder="correo@ejemplo.com + Enter" style="border:none;background:transparent;outline:none;font-size:12px;flex:1;min-width:120px" onkeydown="addDestTag(event)">
+        <div id="env_dest_tags" style="background:var(--bg3);border-radius:8px;padding:8px;min-height:36px;border:1.5px solid var(--brd);display:flex;flex-wrap:wrap;gap:5px;cursor:text" onclick="document.getElementById('env_dest_input').focus()">
+          <input type="email" id="env_dest_input" placeholder="correo@ejemplo.com + Enter" style="border:none;background:transparent;outline:none;font-size:12px;flex:1;min-width:110px" onkeydown="addDestTag(event)">
         </div>
         <input type="hidden" id="env_dest">
-        <button class="btn btn-pr" onclick="enviarRep()"><i class="fas fa-paper-plane"></i> Enviar por Correo</button>
+        <button class="btn btn-pr" onclick="enviarRep()"><i class="fas fa-paper-plane"></i> Enviar Correo</button>
       </div>
     </div>
     <!-- WHATSAPP -->
     <div class="card" style="border-left:4px solid #25D366">
-      <div class="ct"><i class="fab fa-whatsapp" style="color:#25D366"></i> Componer WhatsApp</div>
+      <div class="ct"><i class="fab fa-whatsapp" style="color:#25D366"></i> Enviar por WhatsApp</div>
       <div style="display:flex;flex-direction:column;gap:8px">
-        <div class="fgg"><label>Mensaje</label><textarea class="fc" id="wa_mensaje" rows="3">📊 *${appNom}*\n\nAdjunto informe de reportes.\n_Dios le bendiga._</textarea></div>
+        <div class="fgg"><label>Mensaje</label><textarea class="fc" id="wa_mensaje" rows="3">📊 *${appNom}*\n\nInforme de reportes adjunto.\n_Dios le bendiga._</textarea></div>
         <div style="font-size:11px;font-weight:700;color:var(--tx2)"><i class="fab fa-whatsapp"></i> Destinatarios</div>
-        <div id="wa_dest_tags" style="background:var(--bg3);border-radius:8px;padding:8px;min-height:38px;border:1.5px solid var(--brd);display:flex;flex-wrap:wrap;gap:5px;cursor:text" onclick="document.getElementById('wa_dest_input').focus()">
-          <input type="text" id="wa_dest_input" placeholder="Número + Enter (8 dígitos = +502)" style="border:none;background:transparent;outline:none;font-size:12px;flex:1;min-width:120px" onkeydown="addWaTag(event)">
+        <div id="wa_dest_tags" style="background:var(--bg3);border-radius:8px;padding:8px;min-height:36px;border:1.5px solid var(--brd);display:flex;flex-wrap:wrap;gap:5px;cursor:text" onclick="document.getElementById('wa_dest_input').focus()">
+          <input type="text" id="wa_dest_input" placeholder="Número + Enter (8 dígitos = +502)" style="border:none;background:transparent;outline:none;font-size:12px;flex:1;min-width:110px" onkeydown="addWaTag(event)">
         </div>
         <input type="hidden" id="wa_dest">
-        <button class="btn" style="background:#25D366;color:#fff" onclick="enviarWhatsapp()"><i class="fab fa-whatsapp"></i> Enviar por WhatsApp</button>
+        <button class="btn" style="background:#25D366;color:#fff" onclick="enviarWhatsapp()"><i class="fab fa-whatsapp"></i> Enviar WhatsApp</button>
       </div>
+    </div>
+  </div>
+  <!-- PREVIEW PDF -->
+  <div id="env_preview_wrap" style="margin-top:14px;display:none">
+    <div class="card">
+      <div class="ct" style="display:flex;justify-content:space-between;align-items:center">
+        <span><i class="fas fa-file-pdf" style="color:#e74c3c"></i> <span id="env_preview_title">Vista previa del PDF</span></span>
+        <div style="display:flex;gap:6px">
+          <a id="env_preview_dl" href="#" target="_blank" class="btn btn-er btn-sm"><i class="fas fa-download"></i> Descargar</a>
+          <button class="btn btn-ol btn-sm" onclick="document.getElementById('env_preview_wrap').style.display='none'"><i class="fas fa-times"></i></button>
+        </div>
+      </div>
+      <iframe id="env_preview_iframe" style="width:100%;height:500px;border:none;border-radius:8px;background:#fff"></iframe>
     </div>
   </div>
   <!-- CONTACTOS + HISTORIAL -->
@@ -2748,6 +2761,7 @@ function renderEnvRepo(data){
           <div style="font-size:10px;color:var(--tx3)">Asistencia: ${r['Total Asistencia']||0} · Ofrenda: ${fmtQ(r['Total Ofrenda'])}</div>
         </div>
         ${hasPdf?`<a href="${esc(r['Archivo Generado'])}" target="_blank" onclick="event.stopPropagation()" class="btn btn-ok btn-sm" style="font-size:10px;padding:3px 7px"><i class="fas fa-external-link-alt"></i></a>`:''}
+        <button class="btn btn-ol btn-sm" style="font-size:10px;padding:3px 7px" onclick="event.stopPropagation();previewEnvPDF('${esc(r['No Serie'])}','${esc(r['Titulo de Reporte'])}','${hasPdf?esc(r['Archivo Generado']):''}')" title="Vista previa"><i class="fas fa-eye"></i></button>
       </div>
     </div>`;
   }).join('');
@@ -2762,6 +2776,20 @@ function filtrarEnvRepo(){
   if(h)data=data.filter(r=>!r['Fecha Fin']||r['Fecha Fin']<=h);
   if(lider)data=data.filter(r=>(r['Filtro Lider']||'').toLowerCase()===lider.toLowerCase());
   renderEnvRepo(data);
+}
+function previewEnvPDF(serie,titulo,pdfUrl){
+  var wrap=document.getElementById('env_preview_wrap');
+  var ifr=document.getElementById('env_preview_iframe');
+  var title=document.getElementById('env_preview_title');
+  var dl=document.getElementById('env_preview_dl');
+  if(!wrap||!ifr)return;
+  wrap.style.display='block';
+  if(title)title.textContent='Vista previa: '+serie+' - '+titulo;
+  var url = pdfUrl || '/api/pdf/'+serie;
+  if(!url.startsWith('http')) url = window.location.origin + url;
+  ifr.src=url;
+  if(dl) dl.href=url;
+  wrap.scrollIntoView({behavior:'smooth'});
 }
 
 function toggleEnvRep(serie,pdfUrl,titulo,desde,hasta){

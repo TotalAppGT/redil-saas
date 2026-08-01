@@ -997,32 +997,33 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             </body></html>"""
 
             result = {"ok": True, "html": html, "noSerie": no_serie}
-            # Guardar registro en generador_reportes
-            try:
-                gr = GeneradorReporte(
-                    no_serie=no_serie,
-                    fecha_inicio=desde or None,
-                    fecha_fin=hasta or None,
-                    total_ofrenda=total_ofrenda,
-                    total_asistencia=total_asist,
-                    titulo_reporte=tipo,
-                    filtro_lider=lider or None,
-                    filtro_sup_sector=sup_sector or None,
-                    filtro_sup_area=sup_area or None,
-                    filtro_pastor_zona=pastor_zona or None,
-                    filtro_distrito=distrito or None,
-                    filtro_zona=zona or None,
-                    archivo_generado=""
-                )
-                db.add(gr)
-                db.commit()
-                # PDF disponible vía API endpoint
-                pdf_api_url = f"/api/pdf/{no_serie}"
-                gr.archivo_generado = pdf_api_url
-                db.commit()
-                result["pdfUrl"] = pdf_api_url
-                result["pdfStatus"] = "PDF listo"
-            except: pass
+            # Guardar registro en generador_reportes (solo si no es preview)
+            if not no_guardar:
+                try:
+                    gr = GeneradorReporte(
+                        no_serie=no_serie,
+                        fecha_inicio=desde or None,
+                        fecha_fin=hasta or None,
+                        total_ofrenda=total_ofrenda,
+                        total_asistencia=total_asist,
+                        titulo_reporte=tipo,
+                        filtro_lider=lider or None,
+                        filtro_sup_sector=sup_sector or None,
+                        filtro_sup_area=sup_area or None,
+                        filtro_pastor_zona=pastor_zona or None,
+                        filtro_distrito=distrito or None,
+                        filtro_zona=zona or None,
+                        archivo_generado=""
+                    )
+                    db.add(gr)
+                    db.commit()
+                    # PDF disponible vía API endpoint
+                    pdf_api_url = f"/api/pdf/{no_serie}"
+                    gr.archivo_generado = pdf_api_url
+                    db.commit()
+                    result["pdfUrl"] = pdf_api_url
+                    result["pdfStatus"] = "PDF listo"
+                except: pass
             return result
 
         if action == "guardarPdfAction":
