@@ -1121,38 +1121,6 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                 except: pass
             return result
 
-        if action == "guardarPdfAction":
-            html_content = payload.get("html", "")
-            no_serie = payload.get("noSerie", f"PDF-{datetime.now().strftime('%Y%m%d-%H%M%S')}")
-            if not html_content:
-                return {"ok": False, "msg": "No hay contenido HTML para convertir"}
-
-            try:
-                from weasyprint import HTML as WeasyHTML
-                pdf_bytes = WeasyHTML(string=html_content).write_pdf()
-            except Exception as e:
-                return {"ok": False, "msg": f"Error generando PDF: {str(e)}"}
-
-            try:
-                cfg = {}
-                for c in db.query(Configuracion).all(): cfg[c.clave] = c.valor
-                folder_id = cfg.get("driveFolderId", "")
-                if not folder_id:
-                    return {"ok": True, "html": html_content, "noSerie": no_serie, "msg": "PDF generado localmente. Configura DriveFolderId para guardar en Drive."}
-                from app.drive_utils import upload_pdf
-                pdf_result = upload_pdf(pdf_bytes, f"{no_serie}.pdf", folder_id)
-                pdf_url = pdf_result["url"]
-                # Actualizar registro en generador_reportes
-                try:
-                    gr = db.query(GeneradorReporte).filter(GeneradorReporte.no_serie == no_serie).first()
-                    if gr:
-                        gr.archivo_generado = pdf_url
-                        db.commit()
-                except: pass
-                return {"ok": True, "html": html_content, "noSerie": no_serie, "pdfUrl": pdf_url}
-            except Exception as e:
-                return {"ok": False, "msg": f"Error guardando PDF: {str(e)}"}
-
         # ── WHATSAPP ──
         if action == "sendWhatsapp":
             from app.whatsapp_utils import send_whatsapp, send_whatsapp_bulk
