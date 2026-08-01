@@ -132,7 +132,8 @@ def descargar_pdf(no_serie: str):
             pdf_bytes = WHTML(string=html).write_pdf()
             fname = f"{esc(sys_nom)}_{esc(titulo)}_{desde}_{no_serie}.pdf".replace(' ','_').replace('/','-')
             return Response(pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{fname}"'})
-        except Exception:
+        except Exception as e:
+            print(f"[PDF] weasyprint fallback HTML: {e}")
             return HTMLResponse(content=html)
     except Exception as e:
         return Response(f"Error: {e}".encode(),500)
