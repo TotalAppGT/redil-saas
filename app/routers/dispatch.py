@@ -50,12 +50,12 @@ SUPERVISOR_MAP = {"ID": "id", "CodigoSup": "codigo_sup", "NombreSup": "nombre_su
 PASTOR_MAP = {"ID": "id", "CodigoPastor": "codigo_pastor", "NombrePastor": "nombre_pastor", "Distrito": "distrito", "Zona": "zona", "Telefono": "telefono", "Email": "email", "Activo": "activo"}
 AYUDA_PASTOR_MAP = {"ID": "id", "CodigoAyuda": "codigo_ayuda", "NombreAyuda": "nombre_ayuda", "Distrito": "distrito", "Zona": "zona", "Area": "area", "Telefono": "telefono", "Email": "email", "Activo": "activo"}
 CONTACTO_MAP = {"ID": "id", "Nombre": "nombre", "Correo": "email", "Telefono": "telefono", "Direccion": "direccion", "Notas": "notas", "Activo": "activo"}
-DIEZMO_MAP = {"ID": "id", "Fecha": "fecha", "Nombre": "nombre", "Telefono": "telefono", "Grupo": "grupo", "Tipo": "tipo", "MontoQ": "monto_q", "Descripcion": "descripcion"}
-INVENTARIO_MAP = {"ID": "id", "Articulo": "articulo", "Categoria": "categoria", "Cantidad": "cantidad", "Unidad": "unidad", "Estado": "estado", "Ubicacion": "ubicacion", "ValorQ": "valor_q", "Observaciones": "observaciones"}
-INSUMO_MAP = {"ID": "id", "Articulo": "articulo", "Categoria": "categoria", "Cantidad": "cantidad", "Unidad": "unidad", "PrecioUnitarioQ": "precio_unitario_q", "StockMinimo": "stock_minimo", "Proveedor": "proveedor", "Observaciones": "observaciones"}
-PRIVILEGIO_MAP = {"ID": "id", "Hermano": "hermano", "Area": "area", "CodigoL": "codigo_l", "Privilegio": "privilegio", "FechaInicio": "fecha_inicio", "FechaFin": "fecha_fin", "Observaciones": "observaciones", "Activo": "activo"}
+DIEZMO_MAP = {"ID": "id", "Fecha": "fecha", "Nombre": "nombre", "Telefono": "telefono", "Grupo": "grupo", "Tipo": "tipo", "MontoQ": "monto", "Descripcion": "observaciones"}
+INVENTARIO_MAP = {"ID": "id", "Articulo": "nombre", "Categoria": "categoria", "Cantidad": "cantidad", "Unidad": "unidad", "Estado": "estado", "Ubicacion": "ubicacion", "ValorQ": "valor_q", "Observaciones": "observaciones"}
+INSUMO_MAP = {"ID": "id", "Articulo": "nombre", "Categoria": "categoria", "Cantidad": "cantidad", "Unidad": "unidad", "PrecioUnitarioQ": "precio_unitario_q", "StockMinimo": "stock_minimo", "Proveedor": "proveedor", "Observaciones": "observaciones"}
+PRIVILEGIO_MAP = {"ID": "id", "Hermano": "nombre", "Area": "area", "CodigoL": "codigo_lead", "Privilegio": "privilegio", "FechaInicio": "fecha_inicio", "FechaFin": "fecha_fin", "Observaciones": "observaciones", "Activo": "activo"}
 CRONOGRAMA_MAP = {"ID": "id", "Hermano": "hermano", "Area": "area", "Servicio": "servicio", "Privilegio": "privilegio", "Lunes": "lunes", "Jueves": "jueves", "Domingo_Mañana": "domingo_manana", "Domingo_Tarde": "domingo_tarde", "FechaAsignacion": "fecha_asignacion", "Observaciones": "observaciones", "Activo": "activo"}
-BITACORA_MAP = {"ID": "id", "FechaHora": "fecha_hora", "Usuario": "usuario", "Email": "email", "Rol": "rol", "Accion": "accion", "Detalles": "detalle"}
+BITACORA_MAP = {"ID": "id", "FechaHora": "fecha", "Usuario": "usuario", "Email": "email", "Rol": "rol", "Accion": "accion", "Detalles": "detalle"}
 ENVIO_MAP = {"ID": "id", "IDEnvio": "id_envio", "Fecha Hora": "fecha_hora", "Asunto Correo": "asunto_correo", "Cuerpo Mensaje": "cuerpo_mensaje", "Archivos a Enviar": "archivos_a_enviar", "Destinatarios": "destinatarios", "Estado": "estado", "Rutas Reales PDF": "rutas_reales_pdf"}
 USUARIO_MAP = {"ID": "id", "Nombre": "nombre", "Email": "email", "Rol": "rol", "Activo": "activo", "MenuPermitido": "menu_permitido", "PuedeVerBitacora": "puede_ver_bitacora"}
 GENERADOR_MAP = {"ID": "id", "ID_Reporte": "id_reporte", "Fecha Inicio": "fecha_inicio", "Fecha Fin": "fecha_fin", "Total Ofrenda": "total_ofrenda", "Total Asistencia": "total_asistencia", "Titulo de Reporte": "titulo_reporte", "Archivo Generado": "archivo_generado", "No Serie": "no_serie", "Mes Reporte": "mes_reporte", "Ano Reporte": "ano_reporte", "Filtro Lider": "filtro_lider", "Filtro Sup Sector": "filtro_sup_sector", "Filtro Sup Area": "filtro_sup_area", "Filtro Pastor Zona": "filtro_pastor_zona", "Filtro Distrito": "filtro_distrito", "Filtro Zona": "filtro_zona"}
@@ -210,7 +210,7 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             return {"ok": True}
 
         if action == "registrarAcceso":
-            db.add(Bitacora(fecha_hora=datetime.utcnow(), usuario=payload.get("usuario",""), email=payload.get("email",""), rol=payload.get("rol",""), accion=payload.get("accion","Login"), detalle=payload.get("detalles","")))
+            db.add(Bitacora(fecha=datetime.utcnow(), usuario=payload.get("usuario",""), email=payload.get("email",""), rol=payload.get("rol",""), accion=payload.get("accion","Login"), detalle=payload.get("detalles","")))
             db.commit()
             return {"ok": True}
 
