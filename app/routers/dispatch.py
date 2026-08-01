@@ -1011,20 +1011,100 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                 )
                 db.add(gr)
                 db.commit()
-                # Auto-generar PDF si Drive está configurado
+                # Auto-generar PDF con fpdf2 (no necesita librerías del sistema)
                 pdf_url = ""
                 pdf_msg = ""
                 try:
+                    from fpdf import FPDF
                     cfg = {}
                     for c in db.query(Configuracion).all(): cfg[c.clave] = c.valor
                     folder_id = cfg.get("driveFolderId", os.getenv("DRIVE_FOLDER_ID", "1OHBSDIk7e1FOyC1tgkkAJoRb_nJh2CKM"))
                     if not os.getenv("GOOGLE_CREDENTIALS_JSON"):
-                        pdf_msg = "Falta GOOGLE_CREDENTIALS_JSON en variables de entorno"
+                        pdf_msg = "Falta GOOGLE_CREDENTIALS_JSON"
                     elif folder_id:
-                        from weasyprint import HTML as WeasyHTML
-                        pdf_bytes = WeasyHTML(string=html).write_pdf()
+                        title = esc(tipo)
+                        sys_nom_short = esc(sys_nom or 'REDIL')
+                        pdf = FPDF('L', 'mm', 'Letter')
+                        pdf.add_page()
+                        # Header
+                        pdf.set_fill_color(26, 58, 92)
+                        pdf.rect(0, 0, 279, 22, 'F')
+                        pdf.set_text_color(255, 255, 255)
+                        pdf.set_font('Helvetica', 'B', 14)
+                        pdf.set_xy(10, 4)
+                        pdf.cell(259, 8, sys_nom_short, 0, 1, 'L')
+                        pdf.set_font('Helvetica', '', 9)
+                        pdf.set_xy(10, 11)
+                        pdf.cell(259, 6, f'{title}  |  {rango_str}  |  {fecha_gen}', 0, 0, 'L')
+                        # KPIs
+                        pdf.set_y(25)
+                        kpis = [('Grupos', str(total_grupos)), ('Asistencia', str(total_asist)),
+                                ('Ofrenda Q', f'{total_ofrenda:,.2f}'), ('Hnos', str(total_hnos)),
+                                ('Amigos', str(total_amigos)), ('Ninos', str(total_ninos)),
+                                ('Pendientes', str(total_pendientes)), ('Recibidas', f'{estado_pct}%')]
+                        pdf.set_font('Helvetica', 'B', 9)
+                        col_w = 259 / 4
+                        for i, (label, value) in enumerate(kpis):
+                            x = 10 + (i % 4) * col_w
+                            y = 25 + (i // 4) * 14
+                            pdf.set_xy(x, y)
+                            pdf.set_fill_color(245, 248, 255)
+                            pdf.cell(col_w - 2, 12, '', 0, 0, 'C', True)
+                            pdf.set_xy(x, y + 1)
+                            pdf.set_text_color(26, 58, 92)
+                            pdf.cell(col_w - 2, 6, value, 0, 0, 'C')
+                            pdf.set_xy(x, y + 7)
+                            pdf.set_font('Helvetica', '', 7)
+                            pdf.set_text_color(100, 110, 120)
+                            pdf.cell(col_w - 2, 4, label, 0, 0, 'C')
+                            pdf.set_font('Helvetica', 'B', 9)
+                        # Table header
+                        pdf.set_y(56)
+                        headers = [('Codigo', 22), ('Lider', 54), ('Fecha', 22), ('D-Z', 18), ('AGF', 14), ('Ofrenda', 24), ('Estado', 20)]
+                        pdf.set_fill_color(26, 58, 92)
+                        pdf.set_text_color(255, 255, 255)
+                        pdf.set_font('Helvetica', 'B', 8)
+                        x = 10
+                        for h, w in headers:
+                            pdf.set_xy(x, 56)
+                            pdf.cell(w, 6, h, 0, 0, 'C', True)
+                            x += w
+                        # Table rows
+                        pdf.set_font('Helvetica', '', 8)
+                        y = 63
+                        row_h = 5.5
+                        for ri, r in enumerate(reportes):
+                            if y > 190:
+                                pdf.add_page()
+                                y = 10
+                            if ri % 2 == 0:
+                                pdf.set_fill_color(250, 252, 255)
+                            else:
+                                pdf.set_fill_color(255, 255, 255)
+                            pend = r.ofrenda_recibida in ("Pendiente", "")
+                            of_val = float(r.ofrenda_total or 0)
+                            vals = [
+                                str(r.codigo or '')[:10], str(r.lider or '')[:30],
+                                str(r.fecha)[:10] if r.fecha else '',
+                                f'D{r.distrito or "?"} Z{r.zona or "?"}',
+                                str(r.asistencia or 0), f'Q{of_val:,.2f}',
+                                'Pendiente' if pend else 'Recibida'
+                            ]
+                            pdf.set_text_color(220, 50, 50) if pend else pdf.set_text_color(30, 50, 30)
+                            x = 10
+                            for vi, (_, w) in enumerate(headers):
+                                pdf.set_xy(x, y)
+                                pdf.cell(w, row_h, vals[vi], 0, 0, 'C' if vi >= 3 else 'L', True)
+                                x += w
+                            y += row_h
+                        # Footer
+                        pdf.set_y(y + 3)
+                        pdf.set_font('Helvetica', '', 7)
+                        pdf.set_text_color(100, 110, 120)
+                        pdf.cell(259, 4, f'Total: {total_grupos} grupos  |  Q{total_ofrenda:,.2f}  |  Daniel Martinez - Total App GT', 0, 0, 'C')
+                        pdf_bytes = pdf.output()
                         from app.drive_utils import upload_pdf
-                        pdf_r = upload_pdf(pdf_bytes, f"{no_serie}.pdf", folder_id)
+                        pdf_r = upload_pdf(bytes(pdf_bytes), f"{no_serie}.pdf", folder_id)
                         pdf_url = pdf_r["url"]
                         gr.archivo_generado = pdf_url
                         db.commit()
