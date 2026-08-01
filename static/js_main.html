@@ -1946,7 +1946,9 @@ function genReporte(){
     }
     prev.appendChild(bar);
     loadRepo();
-    toast('Reporte generado — '+res.noSerie,'ok');
+    var msg = 'Reporte generado — '+res.noSerie;
+    if(res.pdfStatus) msg += '\n'+res.pdfStatus;
+    toast(msg, res.pdfUrl?'ok':'in', 6000);
   });
 }
 function guardarEnDrive(btn){

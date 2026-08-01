@@ -1013,11 +1013,14 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                 db.commit()
                 # Auto-generar PDF si Drive está configurado
                 pdf_url = ""
+                pdf_msg = ""
                 try:
                     cfg = {}
                     for c in db.query(Configuracion).all(): cfg[c.clave] = c.valor
                     folder_id = cfg.get("driveFolderId", os.getenv("DRIVE_FOLDER_ID", "1OHBSDIk7e1FOyC1tgkkAJoRb_nJh2CKM"))
-                    if folder_id:
+                    if not os.getenv("GOOGLE_CREDENTIALS_JSON"):
+                        pdf_msg = "Falta GOOGLE_CREDENTIALS_JSON en variables de entorno"
+                    elif folder_id:
                         from weasyprint import HTML as WeasyHTML
                         pdf_bytes = WeasyHTML(string=html).write_pdf()
                         from app.drive_utils import upload_pdf
@@ -1026,10 +1029,12 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                         gr.archivo_generado = pdf_url
                         db.commit()
                         result["pdfUrl"] = pdf_url
+                        pdf_msg = "PDF guardado en Drive"
+                    else:
+                        pdf_msg = "Falta DRIVE_FOLDER_ID"
                 except Exception as e:
-                    print(f"[PDF] Error generando PDF: {e}")
-                    # Si falla Drive, al menos guardar la URL como vacía
-                    pass
+                    pdf_msg = f"Error PDF: {str(e)[:200]}"
+                result["pdfStatus"] = pdf_msg
             except: pass
             return result
 
