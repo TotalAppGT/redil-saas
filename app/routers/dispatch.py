@@ -860,30 +860,39 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             return {"ok": True, "data": sup_map}
 
         if action == "generarReporte":
-            desde = payload.get("desde", "")
-            hasta = payload.get("hasta", "")
-            lider = payload.get("lider", "")
-            sup_sector = payload.get("supSector", "")
-            sup_area = payload.get("supArea", "")
-            pastor_zona = payload.get("pastorZona", "")
-            distrito = payload.get("distrito", "")
-            zona = payload.get("zona", "")
-            tipo = payload.get("tipo", "Reporte de Grupos")
+            desde = payload.get("desde", "").strip()
+            hasta = payload.get("hasta", "").strip()
+            lider = payload.get("lider", "").strip()
+            sup_sector = payload.get("supSector", "").strip()
+            sup_area = payload.get("supArea", "").strip()
+            pastor_zona = payload.get("pastorZona", "").strip()
+            distrito = payload.get("distrito", "").strip()
+            zona = payload.get("zona", "").strip()
+            tipo = payload.get("tipo", "Reporte de Grupos").strip()
             no_guardar = payload.get("_noGuardar", False)
 
             q = db.query(Reporte)
-            if desde: q = q.filter(Reporte.fecha >= desde)
-            if hasta: q = q.filter(Reporte.fecha <= hasta)
+            if desde:
+                try:
+                    d = datetime.strptime(desde, "%Y-%m-%d").date()
+                    q = q.filter(Reporte.fecha >= d)
+                except: q = q.filter(Reporte.fecha >= desde)
+            if hasta:
+                try:
+                    d = datetime.strptime(hasta, "%Y-%m-%d").date()
+                    q = q.filter(Reporte.fecha <= d)
+                except: q = q.filter(Reporte.fecha <= hasta)
             if lider: q = q.filter(Reporte.lider.ilike(f"%{lider}%"))
-            if sup_sector: q = q.filter(Reporte.sup_sector == sup_sector)
-            if sup_area: q = q.filter(Reporte.sup_area == sup_area)
-            if pastor_zona: q = q.filter(Reporte.pastor_zona == pastor_zona)
+            if sup_sector: q = q.filter(Reporte.sup_sector.ilike(f"%{sup_sector}%"))
+            if sup_area: q = q.filter(Reporte.sup_area.ilike(f"%{sup_area}%"))
+            if pastor_zona: q = q.filter(Reporte.pastor_zona.ilike(f"%{pastor_zona}%"))
             if distrito: q = q.filter(Reporte.distrito == distrito)
             if zona: q = q.filter(Reporte.zona == zona)
 
             reportes = q.order_by(Reporte.fecha.desc(), Reporte.distrito, Reporte.zona).all()
+            total_en_db = db.query(Reporte).count()
             if not reportes:
-                return {"ok": False, "msg": "No se encontraron reportes con los filtros seleccionados"}
+                return {"ok": False, "msg": f"No se encontraron reportes. Hay {total_en_db} reportes totales en el sistema. Revisa los filtros: desde={desde or 'cualquiera'}, hasta={hasta or 'cualquiera'}, lider={lider or 'todos'}"}
 
             total_grupos = len(reportes)
             total_asist = sum(r.asistencia or 0 for r in reportes)
