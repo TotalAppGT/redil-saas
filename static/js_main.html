@@ -2939,6 +2939,8 @@ function enviarWhatsapp(){
     fullMsg += '\uD83D\uDCB0 Ofrenda total: Q'+totalOf.toFixed(2)+'\n';
     fullMsg += '\uD83D\uDE4F Asistencia: '+totalAsis+'\n';
     if(selected[0]['Archivo Generado']) pdfUrl = selected[0]['Archivo Generado'];
+    // Convertir a URL absoluta si es relativa
+    if(pdfUrl && !pdfUrl.startsWith('http')) pdfUrl = window.location.origin + pdfUrl;
   }
   loading(true);
   call('enviarWhatsappMasivo',{numeros:numeros,mensaje:fullMsg,pdfUrl:pdfUrl},function(_,res){
