@@ -2637,80 +2637,69 @@ function renderEnvio(el){
   el.innerHTML=`<div class="mod-hdr"><h2><i class="fas fa-paper-plane"></i> Centro de Envíos</h2>
     <div class="mod-acts"><button class="btn btn-ol btn-sm" onclick="recargarEnvio()"><i class="fas fa-sync"></i> Actualizar</button></div>
   </div>
+  <!-- REPOSITORIO (full width top) -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="ct" style="display:flex;justify-content:space-between;align-items:center">
+      <span><i class="fas fa-folder-open"></i> Reportes Generados — selecciona los que quieres enviar</span>
+      <button class="btn btn-ol btn-sm" onclick="deselectAllEnvRep()"><i class="fas fa-times"></i> Limpiar selección</button>
+    </div>
+    <div style="padding:6px 0 8px;display:flex;gap:6px;flex-wrap:wrap">
+      <input type="date" class="fdt" id="env_filt_d" value="${fom()}" onchange="filtrarEnvRepo()">
+      <input type="date" class="fdt" id="env_filt_h" value="${today()}" onchange="filtrarEnvRepo()">
+      <select class="fsl" id="env_filt_lider" onchange="filtrarEnvRepo()">
+        <option value="">Todos los líderes</option>
+        ${[...new Set(APP.hermanos.map(h=>h['NombreL']).filter(Boolean))].sort().map(n=>`<option>${esc(n)}</option>`).join('')}
+      </select>
+      <span id="env_rep_count" style="font-size:11px;color:var(--tx2);padding:4px 8px;background:var(--bg3);border-radius:6px;align-self:center"><b>0</b> seleccionados</span>
+    </div>
+    <div id="env_repo" style="max-height:240px;overflow-y:auto;border:1px solid var(--brd);border-radius:8px;padding:4px">
+      <div class="empty-r" style="padding:16px"><i class="fas fa-circle-notch fa-spin"></i> Cargando reportes...</div>
+    </div>
+  </div>
+  <!-- COMPOSE ROW: Email | WhatsApp | Contacts -->
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start">
-    <!-- COL IZQ: COMPOSICIÓN + CONTACTOS -->
-    <div style="display:flex;flex-direction:column;gap:12px">
-      <div class="card">
-        <div class="ct"><i class="fas fa-envelope"></i> Componer Envío</div>
-        <div style="display:flex;flex-direction:column;gap:10px">
-          <div class="fgg"><label>Asunto</label><input class="fc" id="env_asunto" value="Informes ${appNom}"></div>
-          <div class="fgg"><label>Mensaje</label><textarea class="fc" id="env_cuerpo" rows="2">Buen día, adjunto los informes solicitados. Saludos, ${appNom}.</textarea></div>
-          <!-- Reportes seleccionados -->
-          <div style="font-size:11px;font-weight:700;color:var(--tx2)"><i class="fas fa-file-alt"></i> Reportes a enviar: <span id="env_rep_count" style="color:var(--pr);font-size:13px;font-weight:900">0</span></div>
-          <div id="env_seleccionados" style="background:var(--bg3);border-radius:8px;padding:8px;min-height:36px;border:1.5px dashed var(--brd);font-size:11px;color:var(--tx3);max-height:80px;overflow-y:auto">
-            Selecciona reportes del panel derecho →
-          </div>
-          <!-- Destinatarios -->
-          <div style="font-size:11px;font-weight:700;color:var(--tx2)"><i class="fas fa-at"></i> Destinatarios <span class="req">*</span></div>
-          <div id="env_dest_tags" style="background:var(--bg3);border-radius:8px;padding:8px;min-height:38px;border:1.5px solid var(--brd);display:flex;flex-wrap:wrap;gap:5px;cursor:text" onclick="document.getElementById('env_dest_input').focus()">
-            <input type="email" id="env_dest_input" placeholder="email@ejemplo.com + Enter" style="border:none;background:transparent;outline:none;font-size:12px;flex:1;min-width:160px" onkeydown="addDestTag(event)" onblur="addDestTag({key:'Tab'})">
-          </div>
-          <input type="hidden" id="env_dest">
-          <button class="btn btn-pr" onclick="enviarRep()"><i class="fas fa-paper-plane"></i> Enviar Reportes</button>
+    <!-- EMAIL -->
+    <div class="card">
+      <div class="ct"><i class="fas fa-envelope"></i> Componer Correo</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="fgg"><label>Asunto</label><input class="fc" id="env_asunto" value="Informes ${appNom}"></div>
+        <div class="fgg"><label>Mensaje</label><textarea class="fc" id="env_cuerpo" rows="3">Buen día, adjunto los informes de ${appNom}. Que Dios le bendiga.</textarea></div>
+        <div style="font-size:11px;font-weight:700;color:var(--tx2)"><i class="fas fa-at"></i> Destinatarios</div>
+        <div id="env_dest_tags" style="background:var(--bg3);border-radius:8px;padding:8px;min-height:38px;border:1.5px solid var(--brd);display:flex;flex-wrap:wrap;gap:5px;cursor:text" onclick="document.getElementById('env_dest_input').focus()">
+          <input type="email" id="env_dest_input" placeholder="correo@ejemplo.com + Enter" style="border:none;background:transparent;outline:none;font-size:12px;flex:1;min-width:120px" onkeydown="addDestTag(event)">
         </div>
-      </div>
-      <!-- WHATSAPP -->
-      <div class="card" style="border-left:4px solid #25D366">
-        <div class="ct" style="display:flex;align-items:center;gap:8px">
-          <i class="fab fa-whatsapp" style="color:#25D366;font-size:18px"></i> Enviar por WhatsApp
-        </div>
-        <div style="display:flex;flex-direction:column;gap:10px">
-          <div style="font-size:11px;font-weight:700;color:var(--tx2)"><i class="fab fa-whatsapp"></i> Destinatarios <span class="req">*</span></div>
-          <div id="wa_dest_tags" style="background:var(--bg3);border-radius:8px;padding:8px;min-height:38px;border:1.5px solid var(--brd);display:flex;flex-wrap:wrap;gap:5px;cursor:text" onclick="document.getElementById('wa_dest_input').focus()">
-            <input type="text" id="wa_dest_input" placeholder="Número o grupo + Enter" style="border:none;background:transparent;outline:none;font-size:12px;flex:1;min-width:140px" onkeydown="addWaTag(event)" onblur="addWaTag({key:'Tab'})">
-          </div>
-          <input type="hidden" id="wa_dest">
-          <div class="fgg"><label>Mensaje</label>
-            <textarea class="fc" id="wa_mensaje" rows="2">${appNom} · Informe</textarea>
-          </div>
-          <div style="display:flex;gap:6px;flex-wrap:wrap">
-            <button class="btn" style="background:#25D366;color:#fff" onclick="enviarWhatsapp()"><i class="fab fa-whatsapp"></i> Enviar WhatsApp</button>
-          </div>
-        </div>
-      </div>
-      <!-- CONTACTOS -->
-      <div class="card">
-        <div class="ct" style="display:flex;justify-content:space-between;align-items:center">
-          <span><i class="fas fa-address-book"></i> Contactos — clic para agregar</span>
-          <button class="btn btn-ok btn-sm" onclick="nav('contactos')"><i class="fas fa-plus"></i></button>
-        </div>
-        <div id="envCnts" style="max-height:260px;overflow-y:auto">
-          <div class="empty-r" style="padding:10px"><i class="fas fa-circle-notch fa-spin"></i></div>
-        </div>
-      </div>
-      <!-- HISTORIAL -->
-      <div class="card">
-        <div class="ct"><i class="fas fa-history"></i> Historial de Envíos</div>
-        <div id="envHist" style="max-height:180px;overflow-y:auto"><div class="empty-r" style="padding:10px"><i class="fas fa-circle-notch fa-spin"></i></div></div>
+        <input type="hidden" id="env_dest">
+        <button class="btn btn-pr" onclick="enviarRep()"><i class="fas fa-paper-plane"></i> Enviar por Correo</button>
       </div>
     </div>
-    <!-- COL DER: REPOSITORIO DE REPORTES -->
+    <!-- WHATSAPP -->
+    <div class="card" style="border-left:4px solid #25D366">
+      <div class="ct"><i class="fab fa-whatsapp" style="color:#25D366"></i> Componer WhatsApp</div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="fgg"><label>Mensaje</label><textarea class="fc" id="wa_mensaje" rows="3">📊 *${appNom}*\n\nAdjunto informe de reportes.\n_Dios le bendiga._</textarea></div>
+        <div style="font-size:11px;font-weight:700;color:var(--tx2)"><i class="fab fa-whatsapp"></i> Destinatarios</div>
+        <div id="wa_dest_tags" style="background:var(--bg3);border-radius:8px;padding:8px;min-height:38px;border:1.5px solid var(--brd);display:flex;flex-wrap:wrap;gap:5px;cursor:text" onclick="document.getElementById('wa_dest_input').focus()">
+          <input type="text" id="wa_dest_input" placeholder="Número + Enter (8 dígitos = +502)" style="border:none;background:transparent;outline:none;font-size:12px;flex:1;min-width:120px" onkeydown="addWaTag(event)">
+        </div>
+        <input type="hidden" id="wa_dest">
+        <button class="btn" style="background:#25D366;color:#fff" onclick="enviarWhatsapp()"><i class="fab fa-whatsapp"></i> Enviar por WhatsApp</button>
+      </div>
+    </div>
+  </div>
+  <!-- CONTACTOS + HISTORIAL -->
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:14px;align-items:start">
     <div class="card">
       <div class="ct" style="display:flex;justify-content:space-between;align-items:center">
-        <span><i class="fas fa-folder-open"></i> Reportes Generados — selecciona para enviar</span>
-        <button class="btn btn-ol btn-sm" onclick="deselectAllEnvRep()"><i class="fas fa-times"></i> Limpiar</button>
+        <span><i class="fas fa-address-book"></i> Contactos — clic para agregar a correo o WhatsApp</span>
+        <button class="btn btn-ok btn-sm" onclick="nav('contactos')"><i class="fas fa-plus"></i> Nuevo</button>
       </div>
-      <div style="padding:6px 0 8px;display:flex;gap:6px;flex-wrap:wrap">
-        <input type="date" class="fdt" id="env_filt_d" value="${fom()}" onchange="filtrarEnvRepo()">
-        <input type="date" class="fdt" id="env_filt_h" value="${today()}" onchange="filtrarEnvRepo()">
-        <select class="fsl" id="env_filt_lider" onchange="filtrarEnvRepo()">
-          <option value="">Todos los líderes</option>
-          ${[...new Set(APP.hermanos.map(h=>h['NombreL']).filter(Boolean))].sort().map(n=>`<option>${esc(n)}</option>`).join('')}
-        </select>
-      </div>
-      <div id="env_repo" style="max-height:calc(100vh - 340px);overflow-y:auto">
-        <div class="empty-r" style="padding:16px"><i class="fas fa-circle-notch fa-spin"></i> Cargando reportes...</div>
-      </div>
+      <div id="envCnts" style="max-height:220px;overflow-y:auto"><div class="empty-r" style="padding:10px"><i class="fas fa-circle-notch fa-spin"></i></div></div>
+    </div>
+    <div class="card">
+      <div class="ct"><i class="fas fa-history"></i> Historial de Envíos</div>
+      <div id="envHist" style="max-height:220px;overflow-y:auto"><div class="empty-r" style="padding:10px"><i class="fas fa-circle-notch fa-spin"></i></div></div>
+    </div>
+  </div>`;
     </div>
   </div>`;
   _envRepSelected=new Set();
@@ -2923,14 +2912,36 @@ function addWaCnt(val,type){
 }
 function addDestEmail(email){addDestTagDirect(email);}
 
+function getEnvSelectedReportes(){
+  var sel = [];
+  _envRepSelected.forEach(function(serie){
+    var r = _envAllReportes.find(function(x){return x['No Serie']===serie;});
+    if(r) sel.push(r);
+  });
+  return sel;
+}
 function enviarWhatsapp(){
   var dest = (document.getElementById('wa_dest')||{}).value||'';
   var msg = g('wa_mensaje').trim();
   if(!dest){toast('Agrega al menos un destinatario','wa');return;}
-  if(!msg){toast('Ingresa un mensaje','wa');return;}
   var numeros = dest.split(',').map(function(n){return n.trim();}).filter(Boolean);
+  // Construir mensaje rico con info de reportes seleccionados
+  var selected = getEnvSelectedReportes();
+  var fullMsg = msg;
+  var pdfUrl = '';
+  if(selected.length){
+    var sysName = (APP.config&&APP.config.nombre)||'REDIL';
+    var totalOf = selected.reduce(function(s,r){return s+Number(r['Total Ofrenda']||0);},0);
+    var totalAsis = selected.reduce(function(s,r){return s+Number(r['Total Asistencia']||0);},0);
+    fullMsg = '\uD83D\uDCCA *'+sysName+'*\n\n';
+    fullMsg += '\uD83D\uDCC5 Periodo: '+fmtD(selected[0]['Fecha Inicio'])+' \u2192 '+fmtD(selected[0]['Fecha Fin'])+'\n';
+    fullMsg += '\uD83D\uDCCB Reportes: '+selected.length+'\n';
+    fullMsg += '\uD83D\uDCB0 Ofrenda total: Q'+totalOf.toFixed(2)+'\n';
+    fullMsg += '\uD83D\uDE4F Asistencia: '+totalAsis+'\n';
+    if(selected[0]['Archivo Generado']) pdfUrl = selected[0]['Archivo Generado'];
+  }
   loading(true);
-  call('enviarWhatsappMasivo',{numeros:numeros,mensaje:msg},function(_,res){
+  call('enviarWhatsappMasivo',{numeros:numeros,mensaje:fullMsg,pdfUrl:pdfUrl},function(_,res){
     loading(false);
     if(res&&res.ok) toast('WhatsApp: '+res.msg,'ok',5000);
     else toast('Error: '+(res&&res.msg||'Fallido'),'er',6000);
@@ -2968,7 +2979,7 @@ function enviarRep(){
   },{icon:'fa-paper-plane',title:'Confirmar Envio'});
 }
 
-function renderContactos(el){el.innerHTML=`<div class="mod-hdr"><h2><i class="fas fa-address-book"></i> Tabla de Contactos</h2><div class="mod-acts"><button class="btn btn-ok btn-sm" onclick="newCnt()"><i class="fas fa-plus"></i> Nuevo</button><button class="btn btn-in btn-sm" onclick="exportXLS(_cnt,'Contactos','contactos')"><i class="fas fa-file-excel"></i> Excel</button></div></div><div class="card"><div class="fr"><div class="sb2"><i class="fas fa-search"></i><input type="text" placeholder="Buscar..." oninput="filterCnt(this.value)"></div></div><div class="tw"><table><thead><tr><th>ID</th><th>Nombre</th><th>Correo</th><th>Acciones</th></tr></thead><tbody id="cntTb"></tbody></table></div></div>`;loadCnt();}
+function renderContactos(el){el.innerHTML=`<div class="mod-hdr"><h2><i class="fas fa-address-book"></i> Tabla de Contactos</h2><div class="mod-acts"><button class="btn btn-ok btn-sm" onclick="newCnt()"><i class="fas fa-plus"></i> Nuevo</button><button class="btn btn-in btn-sm" onclick="exportXLS(_cnt,'Contactos','contactos')"><i class="fas fa-file-excel"></i> Excel</button></div></div><div class="card"><div class="fr"><div class="sb2"><i class="fas fa-search"></i><input type="text" placeholder="Buscar..." oninput="filterCnt(this.value)"></div></div><div class="tw"><table><thead><tr><th>ID</th><th>Nombre</th><th>Correo</th><th>WhatsApp</th><th>Acciones</th></tr></thead><tbody id="cntTb"></tbody></table></div></div>`;loadCnt();}
 function loadCnt(){call('getContactos',{},(_, d)=>{_cnt=Array.isArray(d)?d:[];APP.contactos=_cnt;renderCntTb(_cnt);});}
 function renderCntTb(d){const tb=document.getElementById('cntTb');if(!tb)return;if(!d.length){tb.innerHTML=`<tr><td colspan="5"><div class="empty-r"><i class="fas fa-address-book"></i><p>Sin contactos</p></div></td></tr>`;return;}tb.innerHTML=d.map(c=>`<tr><td>${esc(c['IDContacto'])}</td><td><b>${esc(c['Nombre'])}</b></td><td><a href="mailto:${esc(c['Correo'])}" style="color:var(--pr2)">${esc(c['Correo'])}</a></td><td>${c['WhatsApp']||c['Telefono']?`<span style="color:#25D366;font-size:11px"><i class="fab fa-whatsapp"></i> ${esc(c['WhatsApp']||c['Telefono'])}</span>`:'—'}</td><td><div class="ab"><button class="ab-btn ab-ed" onclick="editCnt('${esc(c['IDContacto'])}')"><i class="fas fa-edit"></i></button><button class="ab-btn ab-del" onclick="delCnt('${esc(c['IDContacto'])}')"><i class="fas fa-trash"></i></button></div></td></tr>`).join('');}
 function filterCnt(q){renderCntTb(_cnt.filter(c=>JSON.stringify(c).toLowerCase().includes(q.toLowerCase())));}

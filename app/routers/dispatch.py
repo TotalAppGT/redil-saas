@@ -1068,9 +1068,10 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             from app.whatsapp_utils import send_whatsapp_bulk
             numbers = payload.get("numeros", [])
             msg = payload.get("mensaje", "")
+            pdf_url = payload.get("pdfUrl", "")
             if not numbers or not msg:
                 return {"ok": False, "msg": "Números y mensaje requeridos"}
-            return send_whatsapp_bulk(numbers, msg)
+            return send_whatsapp_bulk(numbers, msg, pdf_url if pdf_url else None)
 
         # ── RECURRENTE (PAGOS) ──
         if action == "getPlanes":

@@ -27,13 +27,45 @@ def send_whatsapp(to_number, message, db=None):
     except Exception as e:
         return {"ok": False, "msg": str(e)}
 
-def send_whatsapp_bulk(numbers, message):
-    """Send WhatsApp message to multiple numbers"""
+def send_whatsapp_document(to_number, pdf_url, caption="", filename="informe.pdf"):
+    """Send PDF document via WhatsApp"""
+    if not WHATSAPP_TOKEN or not WHATSAPP_PHONE_ID:
+        return {"ok": False, "msg": "WhatsApp no configurado"}
+    try:
+        to_num = str(to_number).replace("+", "").replace(" ", "").replace("-", "")
+        resp = httpx.post(
+            WHATSAPP_API,
+            json={
+                "messaging_product": "whatsapp",
+                "to": to_num,
+                "type": "document",
+                "document": {
+                    "link": pdf_url,
+                    "filename": filename,
+                    "caption": caption[:1024] if caption else None
+                }
+            },
+            headers={
+                "Authorization": f"Bearer {WHATSAPP_TOKEN}",
+                "Content-Type": "application/json"
+            },
+            timeout=30
+        )
+        return {"ok": resp.status_code < 400, "msg": resp.text[:200] if resp.status_code >= 400 else "Documento enviado"}
+    except Exception as e:
+        return {"ok": False, "msg": str(e)}
+
+def send_whatsapp_bulk(numbers, message, pdf_url=None):
+    """Send WhatsApp message to multiple numbers, optionally with PDF"""
     results = []
     for num in numbers:
-        r = send_whatsapp(num, message)
+        if pdf_url:
+            r = send_whatsapp_document(num, pdf_url, message)
+        else:
+            r = send_whatsapp(num, message)
         results.append(r)
     ok_count = sum(1 for r in results if r.get("ok"))
+    return {"ok": ok_count > 0, "msg": f"Enviado a {ok_count}/{len(numbers)} contactos"}
     return {"ok": ok_count > 0, "msg": f"Enviado a {ok_count}/{len(numbers)} contactos"}
 
 def send_whatsapp_template(to_number, template_name, params=None):
