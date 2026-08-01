@@ -1089,9 +1089,6 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
         if action == "seedData":
             import random
             from datetime import date as dt_date
-            from datetime import timedelta as td
-            if not os.getenv("ALLOW_SEED"):
-                return {"ok": False, "msg": "Agrega ALLOW_SEED=1 en variables de entorno para usar esta función"}
             models_to_clear = [Hermano, Reporte, Seguimiento, Supervisor, Pastore, AyudaPastor, Contacto, Diezmo, Gasto, Inventario, Insumo, Privilegio, Cronograma, Bautizo]
             for model in models_to_clear:
                 try: db.query(model).delete()
