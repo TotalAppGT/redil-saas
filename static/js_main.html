@@ -61,6 +61,7 @@ function fmtF(s){if(!s)return'';try{var d=new Date(s+'T12:00:00');return d.toLoc
 function today(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function todayStr(){return today();}
 function fom(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-01';}
+function fom30(){var d=new Date();d.setDate(d.getDate()-30);return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function mesNombre(s){if(!s)return'';var m=['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];try{return m[new Date(s+'T12:00:00').getMonth()];}catch(e){return s;}}
 function exportXLS(data,name,file){loading(true);call('exportExcel',{data:data,nombreHoja:name,nombreArchivo:file},function(_,res){loading(false);if(res&&res.ok){var url=res.xlsxUrl||res.url;window.open(url,'_blank');}else toast((res&&res.msg)||'Error al exportar','er');});}
 
@@ -744,7 +745,7 @@ function renderReportes(el){
     <div class="fr" style="padding:10px 14px;border-bottom:1px solid var(--brd)">
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;width:100%">
         <div class="sb2" style="flex:1;min-width:180px"><i class="fas fa-search"></i><input type="text" placeholder="Buscar líder, código, anfitrión..." oninput="_qRep=this.value;renderRepTable(_rep)"></div>
-        <input type="date" class="fdt" id="rD" value="${fom()}" title="Desde">
+        <input type="date" class="fdt" id="rD" value="${fom30()}" title="Desde">
         <input type="date" class="fdt" id="rH" value="${today()}" title="Hasta">
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:6px">
@@ -1644,7 +1645,7 @@ function renderGenerador(el){
       <div class="card">
         <div class="ct"><i class="fas fa-sliders-h"></i> Configuración del Reporte</div>
         <div style="display:flex;flex-direction:column;gap:10px">
-          <div class="fgg"><label>Desde <span class="req">*</span></label><input class="fc" type="date" id="gD" value="${fom()}"></div>
+          <div class="fgg"><label>Desde <span class="req">*</span></label><input class="fc" type="date" id="gD" value="${fom30()}"></div>
           <div class="fgg"><label>Hasta <span class="req">*</span></label><input class="fc" type="date" id="gH" value="${today()}"></div>
           <div class="fgg"><label>Filtrar por Líder</label><select class="fc" id="gL"><option value="">Todos los líderes</option>${[...new Set(APP.hermanos.map(h=>h['NombreL']).filter(Boolean))].sort().map(n=>`<option>${n}</option>`).join('')}</select></div>
           <div class="fgg"><label>Filtrar por Distrito</label><select class="fc" id="gDist"><option value="">Todos los distritos</option>${dists.map(function(d){return '<option value="'+d+'">D'+d+'</option>';}).join('')}</select></div>
@@ -2646,7 +2647,7 @@ function renderEnvio(el){
       <button class="btn btn-ol btn-sm" onclick="deselectAllEnvRep()"><i class="fas fa-times"></i> Limpiar selección</button>
     </div>
     <div style="padding:6px 0 8px;display:flex;gap:6px;flex-wrap:wrap">
-      <input type="date" class="fdt" id="env_filt_d" value="${fom()}" onchange="filtrarEnvRepo()">
+      <input type="date" class="fdt" id="env_filt_d" value="${fom30()}" onchange="filtrarEnvRepo()">
       <input type="date" class="fdt" id="env_filt_h" value="${today()}" onchange="filtrarEnvRepo()">
       <select class="fsl" id="env_filt_lider" onchange="filtrarEnvRepo()">
         <option value="">Todos los líderes</option>
