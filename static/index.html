@@ -105,10 +105,13 @@ input,select,textarea{font-family:var(--fn);outline:none}
 .sg{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:16px}
 .sc{background:var(--bg2);border-radius:var(--r);box-shadow:var(--sh2);padding:14px 14px;border-left:3px solid var(--pr);transition:all .3s cubic-bezier(.4,0,.2,1);position:relative;overflow:hidden;animation:scIn .5s ease both}
 .sc:nth-child(1){animation-delay:.05s}.sc:nth-child(2){animation-delay:.1s}.sc:nth-child(3){animation-delay:.15s}.sc:nth-child(4){animation-delay:.2s}.sc:nth-child(5){animation-delay:.25s}.sc:nth-child(6){animation-delay:.3s}.sc:nth-child(7){animation-delay:.35s}.sc:nth-child(8){animation-delay:.4s}.sc:nth-child(9){animation-delay:.45s}
-@keyframes scIn{from{opacity:0;transform:translateY(16px) scale(.96)}to{opacity:1;transform:none}}
-.sc::before{content:'';position:absolute;top:-50%;right:-50%;width:100%;height:100%;background:radial-gradient(circle,rgba(26,58,92,.04) 0%,transparent 70%);pointer-events:none;border-radius:50%;transition:all .4s}
-.sc:hover{transform:translateY(-4px);box-shadow:0 8px 30px rgba(26,58,92,.15)}
-.sc:hover::before{transform:scale(1.5)}
+@keyframes scIn{from{opacity:0;transform:translateY(20px) scale(.92)}to{opacity:1;transform:none}}
+.sc::before{content:'';position:absolute;top:-60%;right:-60%;width:120%;height:120%;background:radial-gradient(circle,rgba(26,58,92,.05) 0%,transparent 60%);pointer-events:none;border-radius:50%;transition:all .5s}
+.sc::after{content:'';position:absolute;top:0;left:-100%;width:60%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,.15),transparent);animation:shimmer 3s ease-in-out infinite}
+@keyframes shimmer{0%{left:-100%}50%{left:120%}100%{left:120%}}
+.sc:hover{transform:translateY(-6px);box-shadow:0 12px 36px rgba(26,58,92,.18)}
+.sc:hover::before{transform:scale(1.6)}
+.sc:hover::after{animation:none}
 .sc.g{border-left-color:var(--ok)}.sc.o{border-left-color:var(--ac)}.sc.r{border-left-color:var(--err)}.sc.p{border-left-color:var(--pur)}.sc.i{border-left-color:var(--inf)}.sc.t{border-left-color:var(--tl)}
 .sc-ico{width:32px;height:32px;background:rgba(26,58,92,.08);border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--pr);margin-bottom:8px;transition:all .3s}
 .sc:hover .sc-ico{transform:scale(1.15) rotate(-5deg);background:rgba(26,58,92,.14)}

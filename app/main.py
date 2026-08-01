@@ -92,15 +92,13 @@ app.include_router(dispatch.router, prefix="/api", tags=["Dispatch"])
 def health():
     return {"status": "ok", "version": "7.0"}
 
-# ── PDF DOWNLOAD ENDPOINT ──
+# ── PDF DOWNLOAD (HTML→PDF vía weasyprint, idéntico al preview) ──
 @app.get("/api/pdf/{no_serie}")
 def descargar_pdf(no_serie: str):
     from app.database import SessionLocal
     from app.models import GeneradorReporte, Reporte, Configuracion
-    from fpdf import FPDF
-    from io import BytesIO
     from datetime import datetime
-    from fastapi.responses import Response
+    from fastapi.responses import Response, HTMLResponse
     db = SessionLocal()
     try:
         gr = db.query(GeneradorReporte).filter(GeneradorReporte.no_serie == no_serie).first()
@@ -111,112 +109,31 @@ def descargar_pdf(no_serie: str):
         if gr.filtro_lider: q = q.filter(Reporte.lider.ilike(f"%{gr.filtro_lider}%"))
         reportes = q.order_by(Reporte.fecha.desc()).all()
         if not reportes: return Response(b"Sin datos",404)
+        # Get config
         sys_nom = "REDIL"
         cfg = db.query(Configuracion).filter(Configuracion.clave=="nombre").first()
         if cfg: sys_nom = cfg.valor
-        def c(s): return str(s or '').encode('latin-1','replace').decode('latin-1')
-        def fmtQ(v): return f"Q {float(v or 0):,.2f}"
+        # Calc stats
         total_g = len(reportes); total_as = sum(r.asistencia or 0 for r in reportes)
         total_of = sum(float(r.ofrenda_total or 0) for r in reportes)
-        total_hn = sum(r.hnos or 0 for r in reportes)
-        total_am = sum(r.amigos or 0 for r in reportes)
+        total_hn = sum(r.hnos or 0 for r in reportes); total_am = sum(r.amigos or 0 for r in reportes)
         total_ni = sum(r.ninos or 0 for r in reportes)
         total_pend = sum(1 for r in reportes if r.ofrenda_recibida in ("Pendiente",""))
         pct = round((total_g-total_pend)/total_g*100,1) if total_g else 0
         desde = str(gr.fecha_inicio or ''); hasta = str(gr.fecha_fin or '')
-        rango = f"{desde} al {hasta}" if desde and hasta else "Sin filtro de fechas"
-        titulo = gr.titulo_reporte or "Reporte"
-        fecha_gen = datetime.now().strftime("%d/%m/%Y %H:%M")
-        pdf = FPDF('L', 'mm', 'Letter')
-        pdf.set_auto_page_break(True, 14)
-        pdf.add_page()
-        # ── HEADER ── gradient background
-        pdf.set_fill_color(26,58,92)
-        pdf.rect(0,0,279,32,'F')
-        # Accent stripe
-        pdf.set_fill_color(59,130,200); pdf.rect(0,32,279,3,'F')
-        pdf.set_text_color(255,255,255)
-        pdf.set_font('Helvetica','B',17)
-        pdf.set_xy(14,6); pdf.cell(180,8,c(sys_nom),0,0,'L')
-        pdf.set_font('Helvetica','',9)
-        pdf.set_xy(14,15); pdf.cell(180,5,c(titulo),0,0,'L')
-        pdf.set_font('Helvetica','',8)
-        pdf.set_xy(14,22); pdf.cell(180,5,c(f'Periodo: {rango}  |  Generado: {fecha_gen}'),0,0,'L')
-        # Badge
-        pdf.set_xy(200,6)
-        pdf.set_fill_color(255,255,255)
-        pdf.set_text_color(26,58,92)
-        pdf.set_font('Helvetica','B',11)
-        pdf.cell(65,8,c(no_serie),0,0,'C',True)
-        pdf.set_xy(200,14)
-        pdf.set_font('Helvetica','',8)
-        pdf.set_text_color(255,255,255)
-        pdf.cell(65,6,f'{total_g} grupos',0,0,'C')
-        # ── KPI CARDS ──
-        kpi_data = [
-            ('Grupos',str(total_g),'#6366f1'),('Asistencia',str(total_as),'#f59e0b'),
-            ('Ofrenda',fmtQ(total_of),'#10b981'),('Recibidas',f'{pct}%','#3b82f6'),
-            ('Pendientes',str(total_pend),'#ef4444'),('Hermanos',str(total_hn),'#8b5cf6'),
-            ('Amigos',str(total_am),'#14b8a6'),('Ninos',str(total_ni),'#f97316')
-        ]
-        kpi_x=14; kpi_w=(256-14)/4; kpi_h=17; kpi_y=39
-        for i,(l,v,color) in enumerate(kpi_data):
-            x=kpi_x+(i%4)*kpi_w; y=kpi_y+(i//4)*kpi_h
-            # Card
-            pdf.set_fill_color(248,250,255); pdf.set_draw_color(225,230,240)
-            pdf.rect(x,y,kpi_w-4,kpi_h-3,'DF')
-            # Accent
-            r,g,b=int(color[1:3],16),int(color[3:5],16),int(color[5:7],16)
-            pdf.set_fill_color(r,g,b)
-            pdf.rect(x,y,2.8,kpi_h-3,'F')
-            # Value
-            pdf.set_text_color(r,g,b); pdf.set_font('Helvetica','B',11)
-            pdf.set_xy(x+6,y+1); pdf.cell(kpi_w-12,8,v,0,0,'L')
-            # Label
-            pdf.set_font('Helvetica','',7.5); pdf.set_text_color(120,130,145)
-            pdf.set_xy(x+6,y+10); pdf.cell(kpi_w-12,5,l,0,0,'L')
-        # ── TABLE ──
-        col_w=[22,58,22,20,16,22,16,14,18]; col_l=['Codigo','Lider','Fecha','D-Z','AGF','Ofrenda','Hnos','Amg','Estado']
-        tbl_y=kpi_y+2*kpi_h+6
-        pdf.set_fill_color(26,58,92); pdf.set_text_color(255,255,255)
-        pdf.set_font('Helvetica','B',7.5); pdf.set_y(tbl_y)
-        x=14
-        for i,w in enumerate(col_w): pdf.set_xy(x,tbl_y); pdf.cell(w,7.5,col_l[i],0,0,'C',True); x+=w
-        row_h=6.2; y=tbl_y+7.5
-        mpp=int((195-y)/row_h)
-        for ri,r in enumerate(reportes):
-            if ri>0 and ri%mpp==0:
-                pdf.add_page(); y=12
-                pdf.set_fill_color(26,58,92); pdf.set_text_color(255,255,255)
-                pdf.set_font('Helvetica','B',7.5); pdf.set_y(y)
-                x=14
-                for i,w in enumerate(col_w): pdf.set_xy(x,y); pdf.cell(w,7.5,col_l[i],0,0,'C',True); x+=w
-                y+=7.5
-            pdf.set_fill_color(252,254,255) if ri%2==0 else pdf.set_fill_color(245,248,252)
-            pend=r.ofrenda_recibida in ("Pendiente",""); of_val=float(r.ofrenda_total or 0)
-            data=[c(str(r.codigo or'-')[:10]),c(str(r.lider or'-')[:30]),c(str(r.fecha)[:10])if r.fecha else'-',
-                  f'D{c(str(r.distrito or"?"))} Z{c(str(r.zona or"?"))}',str(r.asistencia or 0),
-                  f'Q{of_val:,.2f}',str(r.hnos or 0),str(r.amigos or 0),
-                  'Pendiente'if pend else'Recibida']
-            if pend: pdf.set_text_color(220,40,40)
-            else: pdf.set_text_color(5,150,105)
-            pdf.set_font('Helvetica','',7.5)
-            x=14
-            for vi,w in enumerate(col_w): pdf.set_xy(x,y); pdf.cell(w,row_h,data[vi],0,0,'L'if vi<2 else'C',True); x+=w
-            y+=row_h
-        # ── FOOTER ──
-        pdf.set_y(y+3); pdf.set_draw_color(59,130,200); pdf.set_line_width(.5)
-        pdf.line(14,y+3,265,y+3)
-        pdf.set_font('Helvetica','B',8); pdf.set_text_color(26,58,92)
-        pdf.set_xy(14,y+5); pdf.cell(120,6,f'Total: {total_g} reportes  |  {fmtQ(total_of)}',0,0,'L')
-        pdf.set_font('Helvetica','',7); pdf.set_text_color(130,140,155)
-        pdf.set_xy(14,y+11); pdf.cell(251,4,'Daniel Martinez  |  Total App GT',0,0,'R')
-        # ── OUTPUT ──
-        buf = BytesIO()
-        pdf.output(buf); buf.seek(0)
-        fname = f"{c(sys_nom)}_{c(titulo)}_{desde}_{no_serie}.pdf".replace(' ','_').replace('/','-')
-        return Response(buf.read(), media_type="application/pdf",
-            headers={"Content-Disposition": f'inline; filename="{fname}"'})
+        titulo = gr.titulo_reporte or "Reporte"; fecha_gen = datetime.now().strftime('%d/%m/%Y %H:%M')
+        rango_str = f"{desde or 'Inicio'} \u2192 {hasta or 'Hoy'}"
+        # Build matching HTML
+        esc = lambda s: str(s or '').replace('&','&amp;').replace('<','&lt;').replace('>','&gt;')
+        rows = ''.join(f'<tr><td><span class="cod">{esc(str(r.codigo or "")[:10])}</span></td><td><b>{esc(str(r.lider or "")[:30])}</b></td><td>{esc(str(r.fecha)[:10]) if r.fecha else "-"}</td><td>D{esc(str(r.distrito or "?"))} Z{esc(str(r.zona or "?"))}</td><td class="n">{r.asistencia or 0}</td><td class="n">Q{float(r.ofrenda_total or 0):,.2f}</td><td class="n">{r.hnos or 0}</td><td class="n">{r.amigos or 0}</td><td class="{"p" if r.ofrenda_recibida in ("Pendiente","") else "o"}">{"Pendiente" if r.ofrenda_recibida in ("Pendiente","") else "Recibida"}</td></tr>' for r in reportes)
+        html = f'<!DOCTYPE html><html><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800;900&display=swap" rel="stylesheet"><style>*{{margin:0;padding:0;box-sizing:border-box}}@page{{size:letter landscape;margin:.28in}}body{{font-family:Inter,-apple-system,sans-serif;background:#fff;color:#2d3436;font-size:9px}}.rpt{{max-width:100%}}.hdr{{background:linear-gradient(135deg,#1a3a5c,#2d6a9f,#3b82c4);color:#fff;padding:12px 18px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px}}.hdr h1{{font-size:16px;font-weight:900}}.hdr .sub{{font-size:8px;opacity:.85;margin-top:2px;line-height:1.3}}.hdr-badge{{background:rgba(255,255,255,.2);padding:5px 12px;border-radius:20px;text-align:center}}.hdr-badge .s{{font-size:10px;font-weight:800}}.hdr-badge .c{{font-size:7px;opacity:.7}}.kpis{{display:grid;grid-template-columns:repeat(4,1fr);gap:5px;padding:10px 16px;background:#f8f9fe;border-bottom:1px solid #eef0f8}}.kpi{{background:#fff;border-radius:7px;padding:9px 11px;box-shadow:0 1px 3px rgba(0,0,0,.05);border-left:3px solid var(--kc)}}.kpi .v{{font-size:15px;font-weight:900;color:var(--kc);line-height:1.1}}.kpi .l{{font-size:7px;color:#8c9bab;font-weight:600;text-transform:uppercase}}.c0{{--kc:#6366f1}}.c1{{--kc:#f59e0b}}.c2{{--kc:#10b981}}.c3{{--kc:#3b82f6}}.c4{{--kc:#ef4444}}.c5{{--kc:#8b5cf6}}.c6{{--kc:#14b8a6}}.c7{{--kc:#f97316}}table{{width:100%;border-collapse:collapse;font-size:8px}}thead th{{background:#1a3a5c;color:#fff;font-size:7px;font-weight:700;text-transform:uppercase;padding:5px 5px;text-align:center}}thead th:first-child{{text-align:left;padding-left:10px}}tbody td{{padding:4px 5px;border-bottom:1px solid #f0f2f5;text-align:center}}tbody td:first-child{{text-align:left;padding-left:10px}}tbody tr:nth-child(even){{background:#fafbfe}}.cod{{font-family:monospace;background:#eef0f8;padding:1px 5px;border-radius:4px;color:#2d6a9f;font-weight:700}}.n{{font-weight:700}}.p{{color:#dc2626;font-weight:700}}.o{{color:#059669;font-weight:700}}.footer{{padding:8px 16px;border-top:2px solid #eef0f8;display:flex;justify-content:space-between;align-items:center;font-size:7.5px;color:#8c9bab}}.footer b{{color:#1a3a5c}}</style></head><body><div class="rpt"><div class="hdr"><div><h1>{esc(sys_nom)}</h1><div class="sub">{esc(titulo)} &mdash; {rango_str} &mdash; {fecha_gen}</div></div><div class="hdr-badge"><div class="s">{no_serie}</div><div class="c">{total_g} grupos</div></div></div><div class="kpis"><div class="kpi c0"><div class="v">{total_g}</div><div class="l">Grupos</div></div><div class="kpi c1"><div class="v">{total_as}</div><div class="l">Asistencia</div></div><div class="kpi c2"><div class="v">Q{total_of:,.2f}</div><div class="l">Ofrenda</div></div><div class="kpi c3"><div class="v">{pct}%</div><div class="l">Recibidas</div></div><div class="kpi c4"><div class="v">{total_pend}</div><div class="l">Pendientes</div></div><div class="kpi c5"><div class="v">{total_hn}</div><div class="l">Hermanos</div></div><div class="kpi c6"><div class="v">{total_am}</div><div class="l">Amigos</div></div><div class="kpi c7"><div class="v">{total_ni}</div><div class="l">Ninos</div></div></div><table><thead><tr><th>Codigo</th><th>Lider</th><th>Fecha</th><th>D-Z</th><th>AGF</th><th>Ofrenda</th><th>Hnos</th><th>Amg</th><th>Estado</th></tr></thead><tbody>{rows}</tbody></table><div class="footer"><div><b>{total_g}</b> reportes &middot; <b>Q{total_of:,.2f}</b></div><div>Daniel Martinez &middot; Total App GT</div></div></div></body></html>'
+        try:
+            from weasyprint import HTML as WHTML
+            pdf_bytes = WHTML(string=html).write_pdf()
+            fname = f"{esc(sys_nom)}_{esc(titulo)}_{desde}_{no_serie}.pdf".replace(' ','_').replace('/','-')
+            return Response(pdf_bytes, media_type="application/pdf", headers={"Content-Disposition": f'inline; filename="{fname}"'})
+        except Exception:
+            return HTMLResponse(content=html)
     except Exception as e:
         return Response(f"Error: {e}".encode(),500)
     finally:
