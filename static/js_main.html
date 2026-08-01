@@ -107,6 +107,23 @@ function _resolveConfirm(val){
 function applyLogoToUI(url){if(!url)return;['loginLogoWrap','sidebarLogoWrap'].forEach(function(id){var el=document.getElementById(id);if(el)el.innerHTML='<img src="'+url+'" alt="Logo" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">';});}
 function applyBrandLogoToUI(url){if(!url)return;var el=document.getElementById('sidebarLogoWrap');if(el)el.innerHTML='<img src="'+url+'" alt="Brand" style="width:100%;height:100%;object-fit:cover;border-radius:inherit">';}
 function applyTotalAppLogoToUI(url){if(!url)return;var el=document.getElementById('totalAppLogoWrap');if(el)el.innerHTML='<img src="'+url+'" alt="Total App GT" style="max-height:28px;max-width:90px;object-fit:contain">';}
+// ── FLOATING WHATSAPP ──
+function showFloatWa(){var b=document.getElementById('floatWaBtn');if(b)b.style.display='block';}
+function hideFloatWa(){var b=document.getElementById('floatWaBtn');if(b)b.style.display='none';}
+function floatWaSend(){
+  var num=prompt('Número de WhatsApp (8 dígitos = +502):','');
+  if(!num)return;
+  if(/^\d{8}$/.test(num))num='502'+num;
+  var msg=prompt('Mensaje:','📊 Informe REDIL\n');
+  if(!msg)return;
+  loading(true);
+  call('enviarWhatsappMasivo',{numeros:[num],mensaje:msg},function(_,res){
+    loading(false);
+    if(res&&res.ok)toast('WhatsApp enviado','ok',4000);
+    else toast('Error: '+(res&&res.msg||'Fallido'),'er');
+  });
+}
+
 function initLogo(){var s=localStorage.getItem(LOGO_KEY);if(s)applyLogoToUI(s);var b=localStorage.getItem(TOTALAPP_LOGO_KEY);if(b)applyTotalAppLogoToUI(b);}
 function uploadLogo(){openModal('Cambiar Logo','<div style="text-align:center">'+(localStorage.getItem(LOGO_KEY)?'<img src="'+localStorage.getItem(LOGO_KEY)+'" style="width:80px;height:80px;border-radius:50%;object-fit:cover;border:3px solid var(--brd);margin-bottom:12px">':'')+'<div class="drop-zone" onclick="document.getElementById(\'lgInput\').click()"><i class="fas fa-cloud-upload-alt" style="font-size:28px;color:var(--pr2);display:block;margin-bottom:8px"></i><p>Clic para subir logo</p></div><input type="file" id="lgInput" accept="image/*" style="display:none" onchange="previewLg(this)"><div id="lgPrev" style="margin-top:10px"></div></div>','<button class="btn btn-er" onclick="clearLogo()">Quitar</button><button class="btn btn-ol" onclick="closeModal()">Cancelar</button><button class="btn btn-pr" onclick="saveLogo()">Guardar</button>');}
 function previewLg(input){var file=input.files[0];if(!file)return;var reader=new FileReader();reader.onload=function(e){window._pendLogo=e.target.result;var p=document.getElementById('lgPrev');if(p)p.innerHTML='<img src="'+e.target.result+'" style="width:80px;height:80px;border-radius:50%;object-fit:cover">';};reader.readAsDataURL(file);}
@@ -310,6 +327,7 @@ function nav(name,forceRefresh){
   try{localStorage.setItem('ir_last_mod',name);if(window.history&&window.history.replaceState)window.history.replaceState(null,'','#'+name);}catch(ex){}
   var tEl=document.getElementById('tbTitle');if(tEl)tEl.textContent=TITLES[name]||name;
   document.querySelectorAll('.ni').forEach(function(el){el.classList.toggle('active',el.dataset.mod===name);});
+  if(name==='dashboard'||name==='generador'||name==='envio'||name==='reportes')showFloatWa();else hideFloatWa();
   if(window.innerWidth<=880)closeSidebar();
   var cnt=document.getElementById('content');if(!cnt)return;
   if(forceRefresh){var od=document.getElementById('mod_'+name);if(od)od.parentNode.removeChild(od);}
@@ -1700,7 +1718,7 @@ function loadRepo(){
     if(!data.length){el2.innerHTML='<div class="empty-r" style="padding:14px"><i class="fas fa-filter"></i><p>Sin reportes para los filtros seleccionados</p></div>';return;}
     el2.style.maxHeight='calc(100vh - 420px)';el2.style.overflowY='auto';
     el2.innerHTML=data.map(function(r){
-      var hasPdf=r['Archivo Generado']&&(r['Archivo Generado'].startsWith('http')||r['Archivo Generado'].includes('drive'));
+      var hasPdf=r['Archivo Generado']&&(r['Archivo Generado'].startsWith('http')||r['Archivo Generado'].startsWith('/api/pdf')||r['Archivo Generado'].includes('drive'));
       var id='ri_'+String(r['No Serie']||'').replace(/[^A-Z0-9]/gi,'');
       var sid=esc(r['No Serie']);var sdesde=esc(r['Fecha Inicio']);var shasta=esc(r['Fecha Fin']);
       var slid=esc(r['Filtro Lider']||'');var ssec=esc(r['Filtro Sup Sector']||'');var sarea=esc(r['Filtro Sup Area']||'');
@@ -2749,7 +2767,7 @@ function renderEnvRepo(data){
     return;
   }
   repo.innerHTML=data.map(r=>{
-    const hasPdf=r['Archivo Generado']&&r['Archivo Generado'].startsWith('http');
+    const hasPdf=!!(r['Archivo Generado'])&&(r['Archivo Generado'].startsWith('http')||r['Archivo Generado'].startsWith('/api/pdf'));
     const sel=_envRepSelected.has(r['No Serie']);
     return `<div class="ri" id="envr2_${esc(r['No Serie'])}" 
       style="cursor:pointer;padding:10px 12px;border-radius:8px;transition:.15s;border:2px solid ${sel?'var(--pr)':'transparent'};background:${sel?'rgba(37,99,168,.06)':''}"
@@ -2787,7 +2805,7 @@ function previewEnvPDF(serie,titulo,pdfUrl){
   wrap.style.display='block';
   if(title)title.textContent='Vista previa: '+serie+' - '+titulo;
   var url = pdfUrl || '/api/pdf/'+serie;
-  if(!url.startsWith('http')) url = window.location.origin + url;
+  if(url.startsWith('/')) url = window.location.origin + url;
   ifr.src=url;
   if(dl) dl.href=url;
   wrap.scrollIntoView({behavior:'smooth'});
