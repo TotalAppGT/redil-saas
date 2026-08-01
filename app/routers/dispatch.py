@@ -1011,6 +1011,21 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                 )
                 db.add(gr)
                 db.commit()
+                # Auto-generar PDF si Drive está configurado
+                try:
+                    cfg = {}
+                    for c in db.query(Configuracion).all(): cfg[c.clave] = c.valor
+                    folder_id = cfg.get("driveFolderId", "")
+                    if folder_id:
+                        from weasyprint import HTML as WeasyHTML
+                        pdf_bytes = WeasyHTML(string=html).write_pdf()
+                        from app.drive_utils import upload_pdf
+                        pdf_r = upload_pdf(pdf_bytes, f"{no_serie}.pdf", folder_id)
+                        pdf_url = pdf_r["url"]
+                        gr.archivo_generado = pdf_url
+                        db.commit()
+                        result["pdfUrl"] = pdf_url
+                except: pass
             except: pass
             return result
 
