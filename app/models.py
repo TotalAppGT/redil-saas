@@ -267,3 +267,4 @@ class GeneradorReporte(Base):
     filtro_pastor_zona = Column(String(200))
     filtro_distrito = Column(String(10))
     filtro_zona = Column(String(10))
+    pdf_data = Column(Text, nullable=True)

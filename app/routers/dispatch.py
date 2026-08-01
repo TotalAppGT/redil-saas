@@ -1027,12 +1027,44 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                     )
                     db.add(gr)
                     db.commit()
-                    # PDF disponible vía API endpoint
-                    pdf_api_url = f"/api/pdf/{no_serie}"
-                    gr.archivo_generado = pdf_api_url
-                    db.commit()
-                    result["pdfUrl"] = pdf_api_url
-                    result["pdfStatus"] = "PDF listo"
+                    # Generar PDF
+                    try:
+                        from fpdf import FPDF; import base64, io
+                        pdf=FPDF('L','mm','Letter'); pdf.set_auto_page_break(True,14); pdf.add_page()
+                        pdf.set_fill_color(26,58,92); pdf.rect(0,0,279,24,'F'); pdf.set_fill_color(59,130,200); pdf.rect(0,24,279,2,'F')
+                        pdf.set_text_color(255,255,255); pdf.set_font('Helvetica','B',16); pdf.set_xy(14,5); pdf.cell(190,8,str(sys_nom or'REDIL'),0,0,'L')
+                        pdf.set_font('Helvetica','',8); pdf.set_xy(14,14); pdf.cell(190,5,f'{str(tipo)}  |  {rango_str}  |  {fecha_gen}',0,0,'L')
+                        pdf.set_fill_color(255,255,255); pdf.set_text_color(26,58,92); pdf.set_font('Helvetica','B',10)
+                        pdf.set_xy(210,5); pdf.cell(55,7,no_serie,0,0,'C',True); pdf.set_xy(210,12); pdf.set_font('Helvetica','',7)
+                        pdf.set_text_color(255,255,255); pdf.cell(55,5,f'{total_grupos} grupos',0,0,'C')
+                        kpi_c=[(99,102,241),(245,158,11),(16,185,129),(59,130,246),(239,68,68),(139,92,246),(20,184,166),(249,115,22)]
+                        kpi_d=[('Grupos',str(total_grupos)),('Asistencia',str(total_asist)),('Ofrenda',f'Q{total_ofrenda:,.2f}'),('Recibidas',f'{estado_pct}%'),('Pendientes',str(total_pendientes)),('Hermanos',str(total_hnos)),('Amigos',str(total_amigos)),('Ninos',str(total_ninos))]
+                        kx,ky,kw,kh=14,30,(256-14)/4,16
+                        for i,(l,v) in enumerate(kpi_d):
+                            x=kx+(i%4)*kw; y=ky+(i//4)*kh; pdf.set_fill_color(248,250,255); pdf.set_draw_color(225,230,240); pdf.rect(x,y,kw-4,kh-3,'DF')
+                            cr,cg,cb=kpi_c[i]; pdf.set_fill_color(cr,cg,cb); pdf.rect(x,y,2.5,kh-3,'F')
+                            pdf.set_text_color(cr,cg,cb); pdf.set_font('Helvetica','B',10); pdf.set_xy(x+5,y+1); pdf.cell(kw-12,7,v,0,0,'L')
+                            pdf.set_font('Helvetica','',7); pdf.set_text_color(120,130,145); pdf.set_xy(x+5,y+9); pdf.cell(kw-12,4,l,0,0,'L')
+                        col_w=[22,56,22,20,16,24,15,15,20]; col_h=['Codigo','Lider','Fecha','D-Z','AGF','Ofrenda','Hnos','Amg','Estado']
+                        ty=ky+2*kh+2; pdf.set_fill_color(26,58,92); pdf.set_text_color(255,255,255); pdf.set_font('Helvetica','B',7); pdf.set_y(ty); x=14
+                        for i,w in enumerate(col_w): pdf.set_xy(x,ty); pdf.cell(w,6.5,col_h[i],0,0,'C',True); x+=w
+                        y=ty+6.5; rh=5.5; mpp=int((195-y)/rh)
+                        for ri,r in enumerate(reportes):
+                            if ri>0 and ri%mpp==0: pdf.add_page(); y=12; pdf.set_fill_color(26,58,92); pdf.set_text_color(255,255,255); pdf.set_font('Helvetica','B',7); pdf.set_y(y); x=14
+                            for i,w in enumerate(col_w): pdf.set_xy(x,y); pdf.cell(w,6.5,col_h[i]if ri%mpp==0 else'',0,0,'C',True); x+=w
+                            if ri>0 and ri%mpp==0: y+=6.5; x=14; continue
+                            pdf.set_fill_color(252,254,255)if ri%2==0 else pdf.set_fill_color(245,248,252); pend=r.ofrenda_recibida in("Pendiente","")
+                            of_v=float(r.ofrenda_total or 0); vals=[str(r.codigo or'-')[:10],str(r.lider or'-')[:30],str(r.fecha)[:10]if r.fecha else'-',f'D{str(r.distrito or"?")} Z{str(r.zona or"?")}',str(r.asistencia or 0),f'Q{of_v:,.2f}',str(r.hnos or 0),str(r.amigos or 0),'Pendiente'if pend else'Recibida']
+                            pdf.set_text_color(220,40,40)if pend else pdf.set_text_color(5,150,105); pdf.set_font('Helvetica','',7); x=14
+                            for vi,w in enumerate(col_w): pdf.set_xy(x,y); pdf.cell(w,rh,vals[vi],0,0,'L'if vi<2 else'C',True); x+=w
+                            y+=rh
+                        pdf.set_y(y+3); pdf.set_draw_color(59,130,200); pdf.set_line_width(.5); pdf.line(14,y+3,265,y+3)
+                        pdf.set_font('Helvetica','B',7.5); pdf.set_text_color(26,58,92); pdf.set_xy(14,y+4); pdf.cell(120,5,f'{total_grupos} reportes  |  Q{total_ofrenda:,.2f}',0,0,'L')
+                        pdf.set_font('Helvetica','',6.5); pdf.set_text_color(130,140,155); pdf.set_xy(14,y+9); pdf.cell(251,4,'Daniel Martinez  |  Total App GT',0,0,'R')
+                        buf=io.BytesIO(); pdf.output(buf); pdf_b64=base64.b64encode(buf.getvalue()).decode()
+                        gr.pdf_data=pdf_b64; gr.archivo_generado=f"/api/pdf/{no_serie}"; db.commit()
+                    except: pass
+                    result["pdfUrl"]=f"/api/pdf/{no_serie}"; result["pdfStatus"]="PDF listo"
                 except: pass
             return result
 
