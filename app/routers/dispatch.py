@@ -1012,10 +1012,11 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                 db.add(gr)
                 db.commit()
                 # Auto-generar PDF si Drive está configurado
+                pdf_url = ""
                 try:
                     cfg = {}
                     for c in db.query(Configuracion).all(): cfg[c.clave] = c.valor
-                    folder_id = cfg.get("driveFolderId", "")
+                    folder_id = cfg.get("driveFolderId", os.getenv("DRIVE_FOLDER_ID", "1OHBSDIk7e1FOyC1tgkkAJoRb_nJh2CKM"))
                     if folder_id:
                         from weasyprint import HTML as WeasyHTML
                         pdf_bytes = WeasyHTML(string=html).write_pdf()
@@ -1025,7 +1026,10 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                         gr.archivo_generado = pdf_url
                         db.commit()
                         result["pdfUrl"] = pdf_url
-                except: pass
+                except Exception as e:
+                    print(f"[PDF] Error generando PDF: {e}")
+                    # Si falla Drive, al menos guardar la URL como vacía
+                    pass
             except: pass
             return result
 
