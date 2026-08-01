@@ -88,6 +88,9 @@ app.include_router(seguimientos.router, prefix="/api/seguimientos", tags=["Segui
 app.include_router(telegram.router, prefix="/api/telegram", tags=["Telegram"])
 app.include_router(dispatch.router, prefix="/api", tags=["Dispatch"])
 
+# Crear directorio para PDFs
+os.makedirs("static/pdfs", exist_ok=True)
+
 @app.get("/api/health")
 def health():
     return {"status": "ok", "version": "7.0"}

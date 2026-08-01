@@ -1414,7 +1414,7 @@ function mFootXL(saveFn,label){
 
 function newReporte(){openModal('Nuevo Reporte de Grupo',repForm(),"<button class=\"btn btn-ol\" onclick=\"closeModal()\">Cancelar</button><button class=\"btn btn-pr\" onclick=\"saveRepForm()\"><i class=\"fas fa-save\"></i> Guardar</button>",'xl');}
 function editRep(id){
-  const r=_rep.find(x=>x['ID']===id);
+  const r=_rep.find(x=>String(x['ID'])==String(id));
   if(!r)return;
   openModal(
     'Editar Reporte',
@@ -1425,7 +1425,7 @@ function editRep(id){
   setTimeout(()=>buscarLider(r['Codigo']),100);
 }
 function viewRep(id){
-  const r=_rep.find(x=>x['ID']===id);if(!r)return;
+  const r=_rep.find(x=>String(x['ID'])==String(id));if(!r)return;
   const isPend=r['Ofrenda Recibida']==='Pendiente'||r['Ofrenda Recibida']==='';
   var metodo=r['Reporte']||(r['Tipo de Reporte']==='Reporte Digital'?'Digital':r['Tipo de Reporte']==='Reporte Físico'?'Físico':'');
   var reunionTipo=r['Tipo de Reporte']||'';
@@ -1497,7 +1497,7 @@ function toggleEditLider(id){
   if(p){const open=p.style.display==='none';p.style.display=open?'block':'none';if(ico)ico.className=open?'fas fa-chevron-up':'fas fa-chevron-down';}
 }
 function guardarEditLider(id){
-  const r=_rep.find(x=>x['ID']===id);if(!r)return;
+  const r=_rep.find(x=>String(x['ID'])==String(id));if(!r)return;
   const updates={...r,Anfitrion:document.getElementById('el_anf_'+id)?.value||r['Anfitrion'],Direccion:document.getElementById('el_dir_'+id)?.value||r['Direccion'],'Hora Inicio':document.getElementById('el_hi_'+id)?.value||r['Hora Inicio'],'Hora Final':document.getElementById('el_hf_'+id)?.value||r['Hora Final'],token:getToken()};
   loading(true);call('saveReporte',updates,(_,res)=>{loading(false);if(res?.ok){toast('Cambios guardados','ok');loadRep();}else toast('Error guardando','er');});
 }
@@ -1555,7 +1555,7 @@ function saveRepForm(id){
 }
 function delRep(id){customConfirm('¿Estás seguro de eliminar este reporte? Esta acción no se puede deshacer.',function(ok){if(ok){loading(true);call('deleteReporte',{id},(_,res)=>{loading(false);if(res?.ok){toast('Eliminado','ok');loadRep();}else toast('Error al eliminar','er');});}},{icon:'fa-trash-alt',color:'#e74c3c',danger:true});}
 function printRep(id){
-  const r=_rep.find(x=>x['ID']===id);if(!r)return;
+  const r=_rep.find(x=>String(x['ID'])==String(id));if(!r)return;
   const isPend=r['Ofrenda Recibida']==='Pendiente'||r['Ofrenda Recibida']==='';
   var reunionTipo=r['Tipo de Reporte']||'';
   if(reunionTipo==='Reporte Digital'||reunionTipo==='Reporte Físico')reunionTipo='Mixta (Reunión Regular)';
@@ -2374,7 +2374,7 @@ function cronForm(d){
 }
 function newCronItem(){openModal('Asignar Servicio',cronForm(),mFoot('saveCronItem'));}
 function editCronItem(id){
-  const d=_cronData.find(x=>x['ID']===id);
+  const d=_cronData.find(x=>String(x['ID'])==String(id));
   openModal(
     'Editar Asignación',
     cronForm(d),
@@ -2382,7 +2382,7 @@ function editCronItem(id){
   );
 }
 function viewCronItem(id){
-  const d=_cronData.find(x=>x['ID']===id);if(!d)return;
+  const d=_cronData.find(x=>String(x['ID'])==String(id));if(!d)return;
   const svcs=getServiciosDinamicos();
   const horBadges=svcs.map(s=>{
     const v=d[s.key]==='SI';
@@ -2520,7 +2520,7 @@ function prvForm(p){
 }
 function newPrv(){openModal('Nuevo Privilegio',prvForm(),mFoot('savePrv'));}
 function editPrv(id){
-  const p=_prv.find(x=>x['ID']===id);
+  const p=_prv.find(x=>String(x['ID'])==String(id));
   openModal(
     'Editar Privilegio',
     prvForm(p),
@@ -2541,7 +2541,7 @@ function filterDzm(q){renderDzmTb(_dzm.filter(x=>JSON.stringify(x).toLowerCase()
 function dzmForm(d){d=d||{};return `<div class="fg2"><div class="fgg"><label>Fecha <span class="req">*</span></label><input class="fc" type="date" id="df_f" value="${d['Fecha']||today()}"></div><div class="fgg"><label>Nombre <span class="req">*</span></label><input class="fc" id="df_n" value="${esc(d['Nombre']||'')}"></div><div class="fgg"><label>Teléfono</label><input class="fc" id="df_t" value="${esc(d['Telefono']||'')}"></div><div class="fgg"><label>Tipo de Entrega</label><select class="fc" id="df_g">${['','Física','Transferencia','Otros'].map(op=>`<option value="${op}" ${d['Grupo']===op?'selected':''}>${op||'-- Seleccionar --'}</option>`).join('')}</select></div><div class="fgg"><label>Tipo <span class="req">*</span></label><select class="fc" id="df_ti">${['Diezmo','Ofrenda','Primera Fruta','Voto','Otro'].map(t=>`<option ${d['Tipo']===t?'selected':''}>${t}</option>`).join('')}</select></div><div class="fgg"><label>Monto (Q) <span class="req">*</span></label><input class="fc" type="number" min="0" step="0.01" id="df_m" value="${d['MontoQ']||''}"></div><div class="fgg full"><label>Descripción</label><textarea class="fc" id="df_d" rows="2">${esc(d['Descripcion']||'')}</textarea></div></div>`;}
 function newDzm(){openModal('Nuevo Diezmo/Ofrenda',dzmForm(),mFoot('saveDzm'));}
 function editDzm(id){
-  const d=_dzm.find(x=>x['ID']===id);
+  const d=_dzm.find(x=>String(x['ID'])==String(id));
   openModal(
     'Editar',
     dzmForm(d),
@@ -2562,7 +2562,7 @@ function filterInv(q){renderInvTb(_inv.filter(i=>JSON.stringify(i).toLowerCase()
 function invForm(i){i=i||{};return `<div class="fg2"><div class="fgg"><label>Artículo <span class="req">*</span></label><input class="fc" id="iv_a" value="${esc(i['Articulo']||'')}"></div><div class="fgg"><label>Categoría</label><input class="fc" id="iv_c" list="inv_cat_list" value="${esc(i['Categoria']||'')}"><datalist id="inv_cat_list">${['Mobiliario','Equipo A/V','Instrumento','Limpieza','Papelería','Cocina','Decoración','Otro'].map(c=>`<option value="${c}">`).join('')}</datalist></div><div class="fgg"><label>Cantidad</label><input class="fc" type="number" min="0" id="iv_q" value="${i['Cantidad']||''}"></div><div class="fgg"><label>Unidad</label><input class="fc" id="iv_u" value="${esc(i['Unidad']||'Unidad')}"></div><div class="fgg"><label>Estado</label><select class="fc" id="iv_e">${['Bueno','Regular','Malo','En Reparación'].map(e=>`<option ${i['Estado']===e?'selected':''}>${e}</option>`).join('')}</select></div><div class="fgg"><label>Ubicación</label><input class="fc" id="iv_ub" value="${esc(i['Ubicacion']||'')}"></div><div class="fgg"><label>Valor (Q)</label><input class="fc" type="number" min="0" step="0.01" id="iv_v" value="${i['ValorQ']||''}"></div><div class="fgg full"><label>Obs.</label><textarea class="fc" id="iv_o" rows="2">${esc(i['Observaciones']||'')}</textarea></div></div>`;}
 function newInv(){openModal('Nuevo Artículo',invForm(),mFoot('saveInv'));}
 function editInv(id){
-  const i=_inv.find(x=>x['ID']===id);
+  const i=_inv.find(x=>String(x['ID'])==String(id));
   openModal(
     'Editar',
     invForm(i),
@@ -2572,7 +2572,7 @@ function editInv(id){
 function saveInv(id){const data={'ID':id||'','Articulo':g('iv_a'),'Categoria':g('iv_c'),'Cantidad':g('iv_q'),'Unidad':g('iv_u'),'Estado':g('iv_e'),'Ubicacion':g('iv_ub'),'ValorQ':g('iv_v'),'Observaciones':g('iv_o')};if(!data['Articulo']){toast('Nombre requerido','wa');return;}loading(true);call('saveInventario',data,(_,res)=>{loading(false);if(res?.ok){toast('Guardado','ok');closeModal();loadInv();}});}
 function delInv(id){customConfirm('¿Eliminar este artículo del inventario?',function(ok){if(!ok)return;loading(true);call('deleteInventario',{id},(_,res)=>{loading(false);if(res?.ok){toast('Eliminado','ok');loadInv();}});},{icon:'fa-trash',danger:true});}
 function salidaInv(id){
-  const i=_inv.find(x=>x['ID']===id);
+  const i=_inv.find(x=>String(x['ID'])==String(id));
   if(!i)return toast('Artículo no encontrado','er');
   const actual=Number(i['Cantidad'])||0;
   openModal('Salida de Inventario',
@@ -2599,7 +2599,7 @@ function filterIns(q){renderInsTb(_ins.filter(i=>JSON.stringify(i).toLowerCase()
 function insForm(i){i=i||{};return `<div class="fg2"><div class="fgg"><label>Artículo <span class="req">*</span></label><input class="fc" id="is_a" value="${esc(i['Articulo']||'')}"></div><div class="fgg"><label>Categoría</label><input class="fc" id="is_c" list="ins_cat_list" value="${esc(i['Categoria']||'')}"><datalist id="ins_cat_list">${['Limpieza','Papelería','Higiene','Cocina','Mantenimiento','Otro'].map(c=>`<option value="${c}">`).join('')}</datalist></div><div class="fgg"><label>Cantidad</label><input class="fc" type="number" min="0" id="is_q" value="${i['Cantidad']||''}"></div><div class="fgg"><label>Unidad</label><input class="fc" id="is_u" value="${esc(i['Unidad']||'Unidad')}"></div><div class="fgg"><label>Precio Q</label><input class="fc" type="number" min="0" step="0.01" id="is_p" value="${i['PrecioUnitarioQ']||''}"></div><div class="fgg"><label>Stock Mínimo</label><input class="fc" type="number" min="0" id="is_s" value="${i['StockMinimo']||''}"></div><div class="fgg full"><label>Proveedor</label><input class="fc" id="is_pr" value="${esc(i['Proveedor']||'')}"></div><div class="fgg full"><label>Obs.</label><textarea class="fc" id="is_o" rows="2">${esc(i['Observaciones']||'')}</textarea></div></div>`;}
 function newIns(){openModal('Nuevo Insumo',insForm(),mFoot('saveIns'));}
 function editIns(id){
-  const i=_ins.find(x=>x['ID']===id);
+  const i=_ins.find(x=>String(x['ID'])==String(id));
   openModal(
     'Editar',
     insForm(i),
@@ -2609,7 +2609,7 @@ function editIns(id){
 function saveIns(id){const data={'ID':id||'','Articulo':g('is_a'),'Categoria':g('is_c'),'Cantidad':g('is_q'),'Unidad':g('is_u'),'PrecioUnitarioQ':g('is_p'),'StockMinimo':g('is_s'),'Proveedor':g('is_pr'),'Observaciones':g('is_o')};if(!data['Articulo']){toast('Nombre requerido','wa');return;}loading(true);call('saveInsumo',data,(_,res)=>{loading(false);if(res?.ok){toast('Guardado','ok');closeModal();loadIns();}});}
 function delIns(id){customConfirm('¿Eliminar este insumo?',function(ok){if(!ok)return;loading(true);call('deleteInsumo',{id},(_,res)=>{loading(false);if(res?.ok){toast('Eliminado','ok');loadIns();}});},{icon:'fa-trash',danger:true});}
 function salidaIns(id){
-  const i=_ins.find(x=>x['ID']===id);
+  const i=_ins.find(x=>String(x['ID'])==String(id));
   if(!i)return toast('Insumo no encontrado','er');
   const actual=Number(i['Cantidad'])||0,min=Number(i['StockMinimo'])||0;
   openModal('Salida de Insumo',
@@ -2986,7 +2986,7 @@ function filterCnt(q){renderCntTb(_cnt.filter(c=>JSON.stringify(c).toLowerCase()
 function cntForm(c){c=c||{};return `<div class="fg2"><div class="fgg"><label>Nombre <span class="req">*</span></label><input class="fc" id="cf_n" value="${esc(c['Nombre']||'')}"></div><div class="fgg"><label>Correo</label><input class="fc" type="email" id="cf_c" value="${esc(c['Correo']||'')}"></div><div class="fgg"><label>WhatsApp</label><input class="fc" id="cf_w" value="${esc(c['WhatsApp']||c['Telefono']||'')}" placeholder="50212345678"></div></div>`;}
 function newCnt(){openModal('Nuevo Contacto',cntForm(),mFoot('saveCnt'));}
 function editCnt(id){
-  const c=_cnt.find(x=>x['IDContacto']===id);
+  const c=_cnt.find(x=>String(x['IDContacto'])==String(id));
   openModal(
     'Editar',
     cntForm(c),
@@ -3082,7 +3082,7 @@ function saveUsr(){
   
   // Preservar permisos que no están en el UI (como configuracion) si el usuario ya los tenía
   if(id){
-    const u=_usr.find(x=>x['ID']===id);
+    const u=_usr.find(x=>String(x['ID'])==String(id));
     if(u && u['MenuPermitido']){
       try {
         const oldPerms = JSON.parse(u['MenuPermitido']);
