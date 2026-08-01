@@ -881,17 +881,20 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                     d = datetime.strptime(hasta, "%Y-%m-%d").date()
                     q = q.filter(Reporte.fecha <= d)
                 except: q = q.filter(Reporte.fecha <= hasta)
-            if lider: q = q.filter(Reporte.lider.ilike(f"%{lider}%"))
-            if sup_sector: q = q.filter(Reporte.sup_sector.ilike(f"%{sup_sector}%"))
-            if sup_area: q = q.filter(Reporte.sup_area.ilike(f"%{sup_area}%"))
-            if pastor_zona: q = q.filter(Reporte.pastor_zona.ilike(f"%{pastor_zona}%"))
+            if lider: q = q.filter(Reporte.lider.ilike(f"%{lider.strip()}%"))
+            if sup_sector: q = q.filter(Reporte.sup_sector.ilike(f"%{sup_sector.strip()}%"))
+            if sup_area: q = q.filter(Reporte.sup_area.ilike(f"%{sup_area.strip()}%"))
+            if pastor_zona: q = q.filter(Reporte.pastor_zona.ilike(f"%{pastor_zona.strip()}%"))
             if distrito: q = q.filter(Reporte.distrito == distrito)
             if zona: q = q.filter(Reporte.zona == zona)
 
             reportes = q.order_by(Reporte.fecha.desc(), Reporte.distrito, Reporte.zona).all()
             total_en_db = db.query(Reporte).count()
             if not reportes:
-                return {"ok": False, "msg": f"No se encontraron reportes. Hay {total_en_db} reportes totales en el sistema. Revisa los filtros: desde={desde or 'cualquiera'}, hasta={hasta or 'cualquiera'}, lider={lider or 'todos'}"}
+                # Ayudar al usuario a diagnosticar
+                fechas = db.query(func.min(Reporte.fecha), func.max(Reporte.fecha)).first()
+                rango_db = f"{fechas[0]} a {fechas[1]}" if fechas[0] else "sin datos"
+                return {"ok": False, "msg": f"No se encontraron reportes. Hay {total_en_db} en total (rango: {rango_db}). Filtros: desde={desde or 'cualquiera'}, hasta={hasta or 'cualquiera'}, lider={lider or 'todos'}"}
 
             total_grupos = len(reportes)
             total_asist = sum(r.asistencia or 0 for r in reportes)
