@@ -911,10 +911,10 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                 if cfg: sys_nom = cfg.valor
             except: pass
 
-            # Nomenclatura: R+YYYYMMDD-correlativo
+            # Nomenclatura: redil_YYYYMMDD_correlativo
             today_str = datetime.now().strftime('%Y%m%d')
-            count = db.query(GeneradorReporte).filter(GeneradorReporte.no_serie.like(f'R{today_str}-%')).count() + 1
-            no_serie = f"R{today_str}-{count:03d}"
+            count = db.query(GeneradorReporte).filter(GeneradorReporte.no_serie.like(f'%{today_str}%')).count() + 1
+            no_serie = f"redil_{today_str}_{count:03d}"
             fecha_gen = datetime.now().strftime('%d/%m/%Y %I:%M %p')
             rango_str = f"{desde or 'Inicio'} -> {hasta or 'Hoy'}"
 
@@ -1027,44 +1027,97 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                     )
                     db.add(gr)
                     db.commit()
-                    # Generar PDF
+                    # Generar PDF profesional
                     try:
-                        from fpdf import FPDF; import base64, io
-                        pdf=FPDF('L','mm','Letter'); pdf.set_auto_page_break(True,14); pdf.add_page()
-                        pdf.set_fill_color(26,58,92); pdf.rect(0,0,279,24,'F'); pdf.set_fill_color(59,130,200); pdf.rect(0,24,279,2,'F')
-                        pdf.set_text_color(255,255,255); pdf.set_font('Helvetica','B',16); pdf.set_xy(14,5); pdf.cell(190,8,str(sys_nom or'REDIL'),0,0,'L')
-                        pdf.set_font('Helvetica','',8); pdf.set_xy(14,14); pdf.cell(190,5,f'{str(tipo)}  |  {rango_str}  |  {fecha_gen}',0,0,'L')
-                        pdf.set_fill_color(255,255,255); pdf.set_text_color(26,58,92); pdf.set_font('Helvetica','B',10)
-                        pdf.set_xy(210,5); pdf.cell(55,7,no_serie,0,0,'C',True); pdf.set_xy(210,12); pdf.set_font('Helvetica','',7)
-                        pdf.set_text_color(255,255,255); pdf.cell(55,5,f'{total_grupos} grupos',0,0,'C')
-                        kpi_c=[(99,102,241),(245,158,11),(16,185,129),(59,130,246),(239,68,68),(139,92,246),(20,184,166),(249,115,22)]
-                        kpi_d=[('Grupos',str(total_grupos)),('Asistencia',str(total_asist)),('Ofrenda',f'Q{total_ofrenda:,.2f}'),('Recibidas',f'{estado_pct}%'),('Pendientes',str(total_pendientes)),('Hermanos',str(total_hnos)),('Amigos',str(total_amigos)),('Ninos',str(total_ninos))]
-                        kx,ky,kw,kh=14,30,(256-14)/4,16
-                        for i,(l,v) in enumerate(kpi_d):
-                            x=kx+(i%4)*kw; y=ky+(i//4)*kh; pdf.set_fill_color(248,250,255); pdf.set_draw_color(225,230,240); pdf.rect(x,y,kw-4,kh-3,'DF')
-                            cr,cg,cb=kpi_c[i]; pdf.set_fill_color(cr,cg,cb); pdf.rect(x,y,2.5,kh-3,'F')
-                            pdf.set_text_color(cr,cg,cb); pdf.set_font('Helvetica','B',10); pdf.set_xy(x+5,y+1); pdf.cell(kw-12,7,v,0,0,'L')
-                            pdf.set_font('Helvetica','',7); pdf.set_text_color(120,130,145); pdf.set_xy(x+5,y+9); pdf.cell(kw-12,4,l,0,0,'L')
-                        col_w=[22,56,22,20,16,24,15,15,20]; col_h=['Codigo','Lider','Fecha','D-Z','AGF','Ofrenda','Hnos','Amg','Estado']
-                        ty=ky+2*kh+2; pdf.set_fill_color(26,58,92); pdf.set_text_color(255,255,255); pdf.set_font('Helvetica','B',7); pdf.set_y(ty); x=14
-                        for i,w in enumerate(col_w): pdf.set_xy(x,ty); pdf.cell(w,6.5,col_h[i],0,0,'C',True); x+=w
-                        y=ty+6.5; rh=5.5; mpp=int((195-y)/rh)
+                        from fpdf import FPDF; import base64, io; from datetime import datetime as dt2
+                        pdf = FPDF('L','mm','Letter'); pdf.set_auto_page_break(True,12)
+                        pdf.add_page(); pdf.set_margin(12)
+                        w=pdf.w-24; cx=12 # usable width, start x
+                        # ── HEADER ──
+                        pdf.set_fill_color(26,58,92); pdf.rect(0,0,pdf.w,28,'F')  # full-width blue
+                        pdf.set_draw_color(59,130,200); pdf.set_line_width(1.5)
+                        pdf.line(0,28,pdf.w,28)  # thin accent line
+                        # Left: name + subtitle
+                        pdf.set_text_color(255,255,255); pdf.set_font('Helvetica','B',18)
+                        pdf.set_xy(cx,6); pdf.cell(w*0.65,8,str(sys_nom or'REDIL')[:40],0,0,'L')
+                        pdf.set_font('Helvetica','',9); pdf.set_text_color(200,215,240)
+                        pdf.set_xy(cx,16); pdf.cell(w*0.65,5,f'{str(tipo)[:50]}  \u2014  {rango_str}  \u2014  {fecha_gen}',0,0,'L')
+                        # Right: ID badge
+                        pdf.set_fill_color(255,255,255); pdf.set_text_color(26,58,92)
+                        pdf.set_font('Helvetica','B',13); pdf.set_xy(pdf.w-75,5)
+                        pdf.cell(63,10,no_serie,0,0,'C',True)
+                        pdf.set_font('Helvetica','',8); pdf.set_text_color(26,58,92)
+                        pdf.set_xy(pdf.w-75,15.5); pdf.cell(63,5,f'{total_grupos} reportes',0,0,'C')
+                        # ── KPI CARDS (2 rows of 4) ──
+                        colors=[(99,102,241),(245,158,11),(16,185,129),(59,130,246),(239,68,68),(139,92,246),(20,184,166),(249,115,22)]
+                        data=[('Grupos',str(total_grupos)),('Asistencia',str(total_asist)),('Ofrenda',f'Q{total_ofrenda:,.2f}'),('% Recibidas',f'{estado_pct}%'),('Pendientes',str(total_pendientes)),('Hermanos',str(total_hnos)),('Amigos',str(total_amigos)),('Ninos',str(total_ninos))]
+                        card_w=(w-15)/4; card_h=19; gap=5; y0=33
+                        for i,(l,v) in enumerate(data):
+                            x=cx+(i%4)*(card_w+gap/2); y=y0+(i//4)*(card_h+gap/2)
+                            # Card bg
+                            pdf.set_fill_color(252,253,255); pdf.set_draw_color(230,235,245)
+                            pdf.rect(x,y,card_w,card_h,'DF')
+                            # Left accent bar
+                            cr,cg,cb=colors[i]; pdf.set_fill_color(cr,cg,cb)
+                            pdf.rect(x,y,3,card_h,'F')
+                            # Value
+                            pdf.set_text_color(cr,cg,cb); pdf.set_font('Helvetica','B',13)
+                            pdf.set_xy(x+6,y+2); pdf.cell(card_w-10,8,v,0,0,'L')
+                            # Label
+                            pdf.set_font('Helvetica','',7.5); pdf.set_text_color(130,140,155)
+                            pdf.set_xy(x+6,y+11); pdf.cell(card_w-10,5,l.upper(),0,0,'L')
+                        # ── TABLE ──
+                        tbl_y=y0+2*card_h+2*gap+2
+                        cols=[('Codigo',20),('Lider',52),('Fecha',22),('D-Z',19),('AGF',15),('Ofrenda',24),('Hnos',14),('Amg',14),('Estado',22)]
+                        cw2=[c[1] for c in cols]; ch=[c[0] for c in cols]
+                        # Dark header
+                        pdf.set_fill_color(26,58,92); pdf.set_text_color(255,255,255)
+                        pdf.set_font('Helvetica','B',7.5); pdf.set_y(tbl_y); x=cx
+                        for i,cw_val in enumerate(cw2): pdf.set_xy(x,tbl_y); pdf.cell(cw_val,7,ch[i],0,0,'C',True); x+=cw_val
+                        y=tbl_y+7; rh=5.8; max_rows=int((195-y)/rh)
                         for ri,r in enumerate(reportes):
-                            if ri>0 and ri%mpp==0: pdf.add_page(); y=12; pdf.set_fill_color(26,58,92); pdf.set_text_color(255,255,255); pdf.set_font('Helvetica','B',7); pdf.set_y(y); x=14
-                            for i,w in enumerate(col_w): pdf.set_xy(x,y); pdf.cell(w,6.5,col_h[i]if ri%mpp==0 else'',0,0,'C',True); x+=w
-                            if ri>0 and ri%mpp==0: y+=6.5; x=14; continue
-                            pdf.set_fill_color(252,254,255)if ri%2==0 else pdf.set_fill_color(245,248,252); pend=r.ofrenda_recibida in("Pendiente","")
-                            of_v=float(r.ofrenda_total or 0); vals=[str(r.codigo or'-')[:10],str(r.lider or'-')[:30],str(r.fecha)[:10]if r.fecha else'-',f'D{str(r.distrito or"?")} Z{str(r.zona or"?")}',str(r.asistencia or 0),f'Q{of_v:,.2f}',str(r.hnos or 0),str(r.amigos or 0),'Pendiente'if pend else'Recibida']
-                            pdf.set_text_color(220,40,40)if pend else pdf.set_text_color(5,150,105); pdf.set_font('Helvetica','',7); x=14
-                            for vi,w in enumerate(col_w): pdf.set_xy(x,y); pdf.cell(w,rh,vals[vi],0,0,'L'if vi<2 else'C',True); x+=w
+                            if ri>0 and ri%max_rows==0:
+                                pdf.add_page(); y=12
+                                pdf.set_fill_color(26,58,92); pdf.set_text_color(255,255,255)
+                                pdf.set_font('Helvetica','B',7.5); pdf.set_y(y); x=cx
+                                for i2,cw_val2 in enumerate(cw2): pdf.set_xy(x,y); pdf.cell(cw_val2,7,ch[i2],0,0,'C',True); x+=cw_val2
+                                y+=7
+                            pdf.set_fill_color(252,254,255) if ri%2==0 else pdf.set_fill_color(247,250,254)
+                            pend=r.ofrenda_recibida in("Pendiente",""); of_v=float(r.ofrenda_total or 0)
+                            vals=[str(r.codigo or'-')[:10],str(r.lider or'-')[:30],str(r.fecha)[:10]if r.fecha else'-',f'D{str(r.distrito or"?")} Z{str(r.zona or"?")}',str(r.asistencia or 0),f'Q{of_v:,.2f}',str(r.hnos or 0),str(r.amigos or 0),'']
+                            # Row bg
+                            pdf.set_font('Helvetica','',7.5); x=cx
+                            for vi,cw_val3 in enumerate(cw2):
+                                pdf.set_xy(x,y); align='L'if vi<2 else'C'
+                                if vi==8:
+                                    if pend:
+                                        pdf.set_text_color(200,40,40)
+                                        ww=pdf.get_string_width('Pendiente')+6
+                                        pdf.set_fill_color(254,242,242); pdf.set_draw_color(240,200,200)
+                                        pdf.set_xy(x,y); pdf.cell(cw_val3,rh,'','DF',0,'C',True)
+                                        pdf.set_xy(x,y); pdf.cell(cw_val3,rh,'Pendiente',0,0,'C')
+                                    else:
+                                        pdf.set_text_color(5,150,105)
+                                        ww2=pdf.get_string_width('Recibida')+6
+                                        pdf.set_fill_color(236,253,245); pdf.set_draw_color(180,230,200)
+                                        pdf.set_xy(x,y); pdf.cell(cw_val3,rh,'','DF',0,'C',True)
+                                        pdf.set_xy(x,y); pdf.cell(cw_val3,rh,'Recibida',0,0,'C')
+                                else:
+                                    pdf.set_xy(x,y); pdf.set_text_color(50,60,75)
+                                    pdf.cell(cw_val3,rh,vals[vi],0,0,align,True)
+                                x+=cw_val3
                             y+=rh
-                        pdf.set_y(y+3); pdf.set_draw_color(59,130,200); pdf.set_line_width(.5); pdf.line(14,y+3,265,y+3)
-                        pdf.set_font('Helvetica','B',7.5); pdf.set_text_color(26,58,92); pdf.set_xy(14,y+4); pdf.cell(120,5,f'{total_grupos} reportes  |  Q{total_ofrenda:,.2f}',0,0,'L')
-                        pdf.set_font('Helvetica','',6.5); pdf.set_text_color(130,140,155); pdf.set_xy(14,y+9); pdf.cell(251,4,'Daniel Martinez  |  Total App GT',0,0,'R')
+                        # ── FOOTER ──
+                        pdf.set_y(y+4); pdf.set_draw_color(59,130,200); pdf.set_line_width(.6)
+                        pdf.line(cx,pdf.get_y(),pdf.w-cx,pdf.get_y())
+                        pdf.set_font('Helvetica','B',8); pdf.set_text_color(26,58,92)
+                        pdf.set_xy(cx,pdf.get_y()+2); pdf.cell(w*0.5,6,f'{total_grupos} reportes  \u2014  Q{total_ofrenda:,.2f}',0,0,'L')
+                        pdf.set_font('Helvetica','',7); pdf.set_text_color(140,150,165)
+                        pdf.set_xy(cx,pdf.get_y()+7); pdf.cell(w,5,'Daniel Martinez  \u2014  Total App GT',0,0,'R')
                         buf=io.BytesIO(); pdf.output(buf); pdf_b64=base64.b64encode(buf.getvalue()).decode()
                         gr.pdf_data=pdf_b64; gr.archivo_generado=f"/api/pdf/{no_serie}"; db.commit()
-                    except: pass
-                    result["pdfUrl"]=f"/api/pdf/{no_serie}"; result["pdfStatus"]="PDF listo"
+                        result["pdfUrl"]=f"/api/pdf/{no_serie}"; result["pdfStatus"]="PDF listo"
+                    except Exception as e: pass
                 except: pass
             return result
 
