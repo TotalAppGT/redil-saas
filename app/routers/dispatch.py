@@ -935,43 +935,37 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
             <style>
             *{{margin:0;padding:0;box-sizing:border-box}}
-            body{{font-family:'Inter',sans-serif;background:#f0f4f8;color:#1e2d3d;padding:20px}}
-            .rpt{{max-width:1200px;margin:0 auto;background:#fff;border-radius:16px;box-shadow:0 4px 24px rgba(0,0,0,.08);overflow:hidden}}
-            .hdr{{background:linear-gradient(135deg,#1a3a5c,#2563a8);color:#fff;padding:24px 28px}}
-            .hdr-top{{display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px}}
-            .hdr h1{{font-size:22px;font-weight:900;letter-spacing:-.3px}}
-            .hdr .sub{{font-size:12px;opacity:.75;margin-top:4px}}
-            .hdr .badge{{background:rgba(255,255,255,.15);padding:4px 14px;border-radius:99px;font-size:11px;font-weight:700}}
-            .hdr .rango{{font-size:13px;opacity:.85;margin-top:8px;font-weight:600}}
-            .kpis{{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;padding:20px 28px;background:#f8faff;border-bottom:1px solid #e8edf3}}
-            .kpi{{background:#fff;border-radius:10px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.04);border-left:3px solid var(--kc,#1a3a5c)}}
-            .kpi .v{{font-size:22px;font-weight:900;color:#1a3a5c;line-height:1}}
-            .kpi .l{{font-size:11px;color:#6b7a8a;margin-top:4px;font-weight:600;text-transform:uppercase;letter-spacing:.3px}}
+            @page{{size:letter;margin:0.4in}}
+            body{{font-family:'Inter',-apple-system,sans-serif;background:#fff;color:#1e2d3d;padding:0;font-size:10px}}
+            .rpt{{max-width:100%;margin:0 auto;background:#fff;overflow:hidden}}
+            .hdr{{background:linear-gradient(135deg,#1a3a5c,#2563a8);color:#fff;padding:10px 16px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+            .hdr h1{{font-size:14px;font-weight:900;letter-spacing:-.2px}}
+            .hdr .sub{{font-size:9px;opacity:.75}}
+            .hdr .badge{{background:rgba(255,255,255,.15);padding:2px 10px;border-radius:99px;font-size:9px;font-weight:700}}
+            .hdr .rango{{font-size:10px;opacity:.85;font-weight:600}}
+            .kpis{{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;padding:8px 12px;background:#f8faff;border-bottom:1px solid #e0e5ed;page-break-inside:avoid}}
+            .kpi{{background:#fff;border-radius:6px;padding:6px 10px;box-shadow:0 1px 3px rgba(0,0,0,.04);border-left:2px solid var(--kc,#1a3a5c)}}
+            .kpi .v{{font-size:14px;font-weight:900;color:#1a3a5c;line-height:1.1}}
+            .kpi .l{{font-size:7px;color:#6b7a8a;margin-top:2px;font-weight:600;text-transform:uppercase;letter-spacing:.2px}}
             .kpi.o{{--kc:#e8a020}} .kpi.g{{--kc:#27ae60}} .kpi.r{{--kc:#e74c3c}} .kpi.p{{--kc:#8e44ad}} .kpi.t{{--kc:#0e6655}}
-            .tw{{overflow-x:auto}}
-            table{{width:100%;border-collapse:collapse;font-size:13px}}
-            thead th{{background:#f0f4ff;color:#1a3a5c;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;padding:12px 14px;text-align:left;border-bottom:2px solid #d1dbe8;position:sticky;top:0;white-space:nowrap}}
-            tbody td{{padding:10px 14px;border-bottom:1px solid #e8edf3;vertical-align:middle}}
-            tbody tr:hover{{background:#f8faff}}
+            table{{width:100%;border-collapse:collapse;font-size:9px}}
+            thead th{{background:#1a3a5c;color:#fff;font-size:7.5px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;padding:5px 6px;text-align:left;border-bottom:1px solid #1a3a5c;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+            tbody td{{padding:4px 6px;border-bottom:1px solid #e8edf3;vertical-align:middle}}
             tbody tr:nth-child(even){{background:#fafcff}}
-            .cod{{font-family:monospace;font-size:12px;background:#eef2f7;padding:2px 7px;border-radius:4px;color:#1a3a5c}}
+            .cod{{font-family:monospace;font-size:8px;background:#eef2f7;padding:1px 4px;border-radius:3px;color:#1a3a5c}}
             .num{{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}}
-            .pend{{color:#e74c3c;font-weight:700;font-size:12px}}
-            .ok{{color:#27ae60;font-weight:700;font-size:12px}}
-            .footer{{padding:16px 28px;border-top:1px solid #e8edf3;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;font-size:12px;color:#6b7a8a}}
-            .footer-brand{{display:flex;align-items:center;gap:10px}}
-            .footer-brand img{{width:22px;height:22px;border-radius:5px;object-fit:cover;border:1px solid #e0e5ed}}
-            .footer-brand .name{{font-size:13px;font-weight:800;color:#1a3a5c;line-height:1.1}}
-            .footer-brand .tag{{font-size:9px;font-weight:700;color:#9aaab8;letter-spacing:.3px}}
-            @media print{{body{{padding:0;background:#fff}}.rpt{{box-shadow:none;border-radius:0}}.kpis{{break-inside:avoid}}thead th{{background:#f0f4ff!important;-webkit-print-color-adjust:exact}}}}
+            .pend{{color:#e74c3c;font-weight:700;font-size:8px}}
+            .ok{{color:#27ae60;font-weight:700;font-size:8px}}
+            .footer{{padding:8px 12px;border-top:1px solid #e0e5ed;display:flex;justify-content:space-between;align-items:center;font-size:8px;color:#6b7a8a}}
+            .footer-brand .name{{font-size:9px;font-weight:800;color:#1a3a5c;line-height:1.1}}
+            .footer-brand .tag{{font-size:7px;font-weight:700;color:#9aaab8;letter-spacing:.2px}}
+            @media print{{body{{padding:0;background:#fff}}.rpt{{box-shadow:none}}.kpis{{page-break-inside:avoid}}}}
+            @media screen{{body{{background:#f0f4f8;padding:12px}}.rpt{{border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.08)}}}}
             </style></head><body>
             <div class="rpt">
                 <div class="hdr">
-                    <div class="hdr-top">
-                        <div><h1>{esc(sys_nom or 'REDIL')}</h1><div class="sub">{esc(tipo)}</div></div>
-                        <div><span class="badge">📅 {rango_str}</span></div>
-                    </div>
-                    <div class="rango">📊 {total_grupos} grupos · 🕒 {fecha_gen}</div>
+                    <div><h1>{esc(sys_nom or 'REDIL')}</h1><div class="sub">{esc(tipo)} | {fecha_gen}</div></div>
+                    <div><span class="badge">📅 {rango_str}</span></div>
                 </div>
                 <div class="kpis">
                     <div class="kpi"><div class="v">{total_grupos}</div><div class="l">Grupos</div></div>
@@ -1093,6 +1087,79 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                 return {"ok": True, "msg": f"Correo enviado a {len(emails_list)} destinatario(s)"}
             except Exception as e:
                 return {"ok": False, "msg": str(e)}
+
+        # ── CUADRE DOMINICAL ──
+        if action == "obtenerVistazoDistritalDominical":
+            desde = payload.get("desde","")
+            hasta = payload.get("hasta","")
+            distrito = payload.get("distrito","")
+            zona = payload.get("zona","")
+            distritos = payload.get("distritos",[])
+            zonas = payload.get("zonas",[])
+            # Build base query
+            q = db.query(
+                Reporte.distrito, Reporte.zona,
+                func.count(Reporte.id).label("reportes"),
+                func.sum(Reporte.ofrenda_total).label("monto_ofrenda"),
+                func.sum(Reporte.asistencia).label("asistencia")
+            )
+            if desde: q = q.filter(Reporte.fecha >= desde)
+            if hasta: q = q.filter(Reporte.fecha <= hasta)
+            if distrito: q = q.filter(Reporte.distrito == distrito)
+            if zona: q = q.filter(Reporte.zona == zona)
+            if isinstance(distritos, list) and distritos: q = q.filter(Reporte.distrito.in_(distritos))
+            if isinstance(zonas, list) and zonas: q = q.filter(Reporte.zona.in_(zonas))
+            q = q.group_by(Reporte.distrito, Reporte.zona).order_by(Reporte.distrito, Reporte.zona)
+            rows = q.all()
+            data = []
+            for row in rows:
+                d, z, rptes, monto, asis = row
+                # Digitales
+                dig_q = db.query(func.count(Reporte.id)).filter(Reporte.distrito == d, Reporte.zona == z, Reporte.reporte_origen == "Digital")
+                if desde: dig_q = dig_q.filter(Reporte.fecha >= desde)
+                if hasta: dig_q = dig_q.filter(Reporte.fecha <= hasta)
+                digitales = dig_q.scalar() or 0
+                # Digital con ofrenda
+                dig_ok = db.query(func.count(Reporte.id)).filter(Reporte.distrito == d, Reporte.zona == z, Reporte.reporte_origen == "Digital", Reporte.ofrenda_recibida.notin_(["Pendiente",""]))
+                if desde: dig_ok = dig_ok.filter(Reporte.fecha >= desde)
+                if hasta: dig_ok = dig_ok.filter(Reporte.fecha <= hasta)
+                digitalConOfrenda = dig_ok.scalar() or 0
+                # Digital sin ofrenda
+                digitalSinOfrenda = digitales - digitalConOfrenda
+                # Montos digitales con ofrenda
+                m_dig_ok = db.query(func.coalesce(func.sum(Reporte.ofrenda_total),0)).filter(Reporte.distrito == d, Reporte.zona == z, Reporte.reporte_origen == "Digital", Reporte.ofrenda_recibida.notin_(["Pendiente",""]))
+                if desde: m_dig_ok = m_dig_ok.filter(Reporte.fecha >= desde)
+                if hasta: m_dig_ok = m_dig_ok.filter(Reporte.fecha <= hasta)
+                montoConOfrenda = float(m_dig_ok.scalar() or 0)
+                # Sin ofrenda monto
+                m_dig_no = db.query(func.coalesce(func.sum(Reporte.ofrenda_total),0)).filter(Reporte.distrito == d, Reporte.zona == z, Reporte.reporte_origen == "Digital", Reporte.ofrenda_recibida.in_(["Pendiente",""]))
+                if desde: m_dig_no = m_dig_no.filter(Reporte.fecha >= desde)
+                if hasta: m_dig_no = m_dig_no.filter(Reporte.fecha <= hasta)
+                montoSinOfrenda = float(m_dig_no.scalar() or 0)
+                # Fisico (no es digital) = sobres
+                fis_q = db.query(func.count(Reporte.id)).filter(Reporte.distrito == d, Reporte.zona == z, Reporte.reporte_origen != "Digital")
+                if desde: fis_q = fis_q.filter(Reporte.fecha >= desde)
+                if hasta: fis_q = fis_q.filter(Reporte.fecha <= hasta)
+                sobres = fis_q.scalar() or 0
+                # Monto fisico
+                m_fis = db.query(func.coalesce(func.sum(Reporte.ofrenda_total),0)).filter(Reporte.distrito == d, Reporte.zona == z, Reporte.reporte_origen != "Digital")
+                if desde: m_fis = m_fis.filter(Reporte.fecha >= desde)
+                if hasta: m_fis = m_fis.filter(Reporte.fecha <= hasta)
+                montoFisico = float(m_fis.scalar() or 0)
+                # Pendientes
+                pend_q = db.query(func.count(Reporte.id)).filter(Reporte.distrito == d, Reporte.zona == z, Reporte.ofrenda_recibida.in_(["Pendiente",""]))
+                if desde: pend_q = pend_q.filter(Reporte.fecha >= desde)
+                if hasta: pend_q = pend_q.filter(Reporte.fecha <= hasta)
+                pendientes = pend_q.scalar() or 0
+                data.append({
+                    "distrito": d or "?", "zona": z or "?",
+                    "reportes": rptes, "digitales": digitales,
+                    "digitalConOfrenda": digitalConOfrenda, "digitalSinOfrenda": digitalSinOfrenda,
+                    "sobres": sobres, "montoDigital": float(monto or 0),
+                    "montoConOfrenda": montoConOfrenda, "montoSinOfrenda": montoSinOfrenda,
+                    "montoFisico": montoFisico, "pendientes": pendientes
+                })
+            return {"ok": True, "data": data}
 
         # ── SEMILLA DATOS DE PRUEBA ──
         if action == "seedData":
