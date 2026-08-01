@@ -20,8 +20,9 @@ def get_drive_service():
     return build("drive", "v3", credentials=creds)
 
 def upload_pdf(pdf_bytes, filename, folder_id, mime_type="application/pdf"):
+    """Upload file to Google Drive using simple upload"""
     service = get_drive_service()
-    media = MediaIoBaseUpload(io.BytesIO(pdf_bytes), mimetype=mime_type, resumable=True)
+    media = MediaIoBaseUpload(io.BytesIO(pdf_bytes), mimetype=mime_type, resumable=False)
     file_metadata = {"name": filename, "parents": [folder_id]}
     file = service.files().create(body=file_metadata, media_body=media, fields="id,webViewLink").execute()
     file_id = file.get("id")
