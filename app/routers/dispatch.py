@@ -910,7 +910,7 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
 
             no_serie = f"RPT-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
             fecha_gen = datetime.now().strftime('%d/%m/%Y %I:%M %p')
-            rango_str = f"{desde or 'Inicio'} → {hasta or 'Hoy'}"
+            rango_str = f"{desde or 'Inicio'} -> {hasta or 'Hoy'}"
 
             rows_html = ""
             for r in reportes:
@@ -1022,8 +1022,11 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                     if not os.getenv("GOOGLE_CREDENTIALS_JSON"):
                         pdf_msg = "Falta GOOGLE_CREDENTIALS_JSON"
                     elif folder_id:
-                        title = esc(tipo)
-                        sys_nom_short = esc(sys_nom or 'REDIL')
+                        title = str(tipo or 'Reporte')
+                        sys_nom_short = str(sys_nom or 'REDIL')
+                        # Sanitize: remove non-Latin1 chars for fpdf2 Helvetica
+                        def clean_pdf(s):
+                            return str(s or '').encode('latin-1', errors='replace').decode('latin-1')
                         pdf = FPDF('L', 'mm', 'Letter')
                         pdf.add_page()
                         # Header
@@ -1031,11 +1034,11 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                         pdf.rect(0, 0, 279, 22, 'F')
                         pdf.set_text_color(255, 255, 255)
                         pdf.set_font('Helvetica', 'B', 14)
-                        pdf.set_xy(10, 4)
-                        pdf.cell(259, 8, sys_nom_short, 0, 1, 'L')
-                        pdf.set_font('Helvetica', '', 9)
-                        pdf.set_xy(10, 11)
-                        pdf.cell(259, 6, f'{title}  |  {rango_str}  |  {fecha_gen}', 0, 0, 'L')
+                        pdf.set_xy(11, 4)
+                        pdf.cell(257, 6, clean_pdf(sys_nom_short), 0, 1, 'L')
+                        pdf.set_font('Helvetica', '', 7)
+                        pdf.set_xy(11, 10)
+                        pdf.cell(257, 5, clean_pdf(f'{title}  |  {rango_str}  |  {fecha_gen}'), 0, 0, 'L')
                         # KPIs
                         pdf.set_y(25)
                         kpis = [('Grupos', str(total_grupos)), ('Asistencia', str(total_asist)),
@@ -1084,8 +1087,8 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                             pend = r.ofrenda_recibida in ("Pendiente", "")
                             of_val = float(r.ofrenda_total or 0)
                             vals = [
-                                str(r.codigo or '')[:10], str(r.lider or '')[:30],
-                                str(r.fecha)[:10] if r.fecha else '',
+                                clean_pdf(str(r.codigo or '')[:12]), clean_pdf(str(r.lider or '')[:30]),
+                                clean_pdf(str(r.fecha)[:10]) if r.fecha else '',
                                 f'D{r.distrito or "?"} Z{r.zona or "?"}',
                                 str(r.asistencia or 0), f'Q{of_val:,.2f}',
                                 'Pendiente' if pend else 'Recibida'
