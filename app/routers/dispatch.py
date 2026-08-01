@@ -1085,6 +1085,59 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             except Exception as e:
                 return {"ok": False, "msg": str(e)}
 
+        # ── SEMILLA DATOS DE PRUEBA ──
+        if action == "seedData":
+            import random
+            from datetime import date as dt_date, timedelta
+            if not os.getenv("ALLOW_SEED"):
+                return {"ok": False, "msg": "Agrega ALLOW_SEED=1 en variables de entorno para usar esta función"}
+            models_to_clear = [Hermano, Reporte, Seguimiento, Supervisor, Pastore, AyudaPastor, Contacto, Diezmo, Gasto, Inventario, Insumo, Privilegio, Cronograma, Bautizo]
+            for model in models_to_clear:
+                try: db.query(model).delete()
+                except: pass
+            db.commit()
+            hoy = dt_date.today()
+            # Supervisores, Pastores, Ayuda Pastor
+            svs = [Supervisor(codigo_sup=f"SP{i:03d}", nombre_sup=f"Supervisor {i}", distrito=str((i%3)+1), zona=str((i%2)+1), area=chr(65+(i%5)), sector=str((i%3)+1), telefono=f"5551-{i:04d}", email=f"sup{i}@iglesia.com", activo=True) for i in range(1,4)]
+            pas = [Pastore(codigo_pastor=f"PZ{i:02d}", nombre_pastor=["Fernando García","Ana Morales","Pedro Hernández"][i-1], distrito=str(i), zona="1", telefono=f"5550-{i:04d}", email=f"pastor{i}@iglesia.com", activo=True) for i in range(1,4)]
+            db.add_all(svs+pas)
+            db.add(AyudaPastor(codigo_ayuda="AP01", nombre_ayuda="Luis Castillo", distrito="1", zona="1", area="A", telefono="5550-2001", email="luis@iglesia.com", activo=True))
+            # Hermanos (50)
+            nombres = ["Juan Pérez","María Gómez","Carlos Ruiz","Ana Martínez","Luis Sánchez","Elena Torres","Pedro Vargas","Sofía López","Diego Ramírez","Laura Jiménez","Miguel Cruz","Carmen Flores","Roberto Ortiz","Patricia Núñez","Francisco Reyes","Gabriela Mendoza","Antonio Rojas","Isabel Delgado","Ricardo Castro","Verónica Peña","Alejandro Mora","Daniela Herrera","Oscar Pineda","Lucía Aguirre","Manuel Esquivel","Raquel Medina","Felipe Campos","Natalia Vega","Héctor Fuentes","Adriana León","Jorge Rivas","Cecilia Avila","Rubén Solís","Mónica Ortega","Alberto Farfán","Silvia Calderón","Eduardo Miranda","Rosa Benítez","Enrique Gallardo","Teresa Cárdenas","Samuel Arévalo","Paola Gutiérrez","David Valle","Margarita Ponce","Arturo Chávez","Brenda Rosales","Gustavo Rangel","Alicia Padilla","César Ochoa","Claudia Serrano"]
+            hnos = []
+            for i, nom in enumerate(nombres):
+                d, z, a, s, g = str((i%5)+1), str((i%3)+1), chr(65+(i//5%6)), str((i%4)+1), str((i%2)+1)
+                cod = f"{d}{z}{a}{s}{g}"
+                hnos.append(Hermano(codigo_lead=cod, nombre=nom, distrito=d, zona=z, area=a, sector=s, grupo=g, pastor_zona=["Fernando García","Ana Morales","Pedro Hernández"][i%3], sup_sector=["Supervisor 1","Supervisor 2","Supervisor 3"][i%3], sup_area="Luis Castillo", anfitrion=f"Casa {nom.split()[0]}", direccion=f"{(i%50)+1} Calle Principal Z{z}"))
+            db.add_all(hnos)
+            # Reportes (150)
+            tipos = ["Mixta","Jóvenes","Damas","Caballeros"]
+            for _ in range(150):
+                h = random.choice(hnos)
+                f = hoy - timedelta(days=random.randint(0,90))
+                db.add(Reporte(codigo=h.codigo_lead, lider=h.nombre, fecha=f, distrito=h.distrito, zona=h.zona, area=h.area, sector=h.sector, grupo=h.grupo, ofrenda_total=round(random.uniform(25,300),2), ofrenda_recibida=random.choice(["Recibida","Recibida","Pendiente"]), asistencia=random.randint(5,45), hnos=random.randint(2,20), amigos=random.randint(0,10), ninos=random.randint(0,10), tipo_reporte=random.choice(tipos), sup_sector=h.sup_sector, sup_area=h.sup_area, pastor_zona=h.pastor_zona, anfitrion=h.anfitrion))
+            # Seguimientos (80)
+            pers = ["Marta Álvarez","José Ibarra","Rosa Elena","Francisco Paz","Julia Ventura","David Reyes","Sara Montero","Tomás Aguilar"]
+            for _ in range(80):
+                h = random.choice(hnos)
+                db.add(Seguimiento(fecha=hoy-timedelta(days=random.randint(0,60)), persona=random.choice(pers), tipo=random.choice(["Convertido","Reconciliación","Visita","Sanidad","Oración"]), responsable=h.nombre, estado=random.choice(["Pendiente","En Proceso","Completado"])))
+            # Diezmos (40), Gastos (30), Inventario (15), Insumos (15), Bautizos (5), Contactos (4)
+            for _ in range(40):
+                h = random.choice(hnos)
+                db.add(Diezmo(fecha=hoy-timedelta(days=random.randint(0,60)), nombre=h.nombre, telefono=f"5550-{random.randint(1000,9999)}", grupo=h.grupo, monto=round(random.uniform(50,500),2), tipo=random.choice(["Diezmo","Ofrenda","Siembra"])))
+            cats = ["Limpieza","Mantenimiento","Eventos","Papelería","Transporte"]
+            for _ in range(30):
+                db.add(Gasto(concepto=random.choice(["Compra insumos","Reparación","Actividad","Refrigerio"]), evento=random.choice(["Servicio","Reunión Líderes","",""]), monto=round(random.uniform(25,800),2), fecha=hoy-timedelta(days=random.randint(0,90)), categoria=random.choice(cats), responsable=random.choice(["Fernando García","Ana Morales"]), metodo=random.choice(["Efectivo","Transferencia"])))
+            inv_items = [("Sillas",80,"Unidad","Bueno",12000),("Mesas",15,"Unidad","Bueno",4500),("Micrófonos",4,"Unidad","Bueno",3200),("Proyector",1,"Unidad","Bueno",7800),("Biblias",40,"Unidad","Bueno",3200)]
+            for n, c, u, e, v in inv_items:
+                db.add(Inventario(nombre=n, categoria="Mobiliario", cantidad=c, unidad=u, estado=e, valor_q=v))
+            for n, ct, pr, st in [("Papel resmas",25,45,5),("Bolígrafos",100,3,20),("Cloro",12,28,3),("Vasos",300,0.8,80),("Focos LED",12,35,3)]:
+                db.add(Insumo(nombre=n, categoria="Papelería" if ct>20 else "Limpieza", cantidad=ct, unidad="Unidad", precio_unitario_q=pr, stock_minimo=st, proveedor="Proveedor GT"))
+            db.add_all([Bautizo(fecha=hoy-timedelta(days=15), nombre="Andrea Castillo", edad=22, pastor_oficiante="Fernando García", lugar="Iglesia Central"), Bautizo(fecha=hoy-timedelta(days=8), nombre="Ricardo Palma", edad=18, pastor_oficiante="Ana Morales", lugar="Sede Norte"), Bautizo(fecha=hoy-timedelta(days=3), nombre="Valentina Ruiz", edad=15, pastor_oficiante="Pedro Hernández", lugar="Iglesia Central")])
+            db.add_all([Contacto(nombre="Proveedor Audio", email="audio@prov.com"), Contacto(nombre="Distribuidora", email="ventas@dist.com"), Contacto(nombre="Imprenta", email="info@imprenta.com"), Contacto(nombre="Mantenimiento", email="soporte@equipos.com")])
+            db.commit()
+            return {"ok": True, "msg": f"Datos de prueba generados: 50 líderes, 150 reportes, 80 seguimientos, 40 diezmos, 30 gastos, y más."}
+
         return {"ok": False, "msg": f"Acción '{action}' no implementada en API"}
 
     except Exception as e:
