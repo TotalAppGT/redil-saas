@@ -26,13 +26,13 @@ def esc(s):
 ALL_MENU_IDS = [
     'dashboard','reportes','reporteDigital','formulario','generador',
     'hermanos','cargaMasiva','seguimientos','privilegios',
-    'diezmos','gastos','inventario','insumos','bautizos',
+    'diezmos','gastos','cuadre','inventario','insumos','bautizos',
     'supervisores','pastores','ayudapastor',
     'envio','contactos','usuarios','configuracion','bitacora'
 ]
 
 ROL_DEFAULT_MENU = {
-    'Admin':     ['dashboard','reportes','reporteDigital','formulario','generador','hermanos','cargaMasiva','seguimientos','privilegios','diezmos','gastos','inventario','insumos','bautizos','envio','contactos','usuarios','supervisores','pastores','ayudapastor','configuracion','bitacora'],
+    'Admin':     ['dashboard','reportes','reporteDigital','formulario','generador','hermanos','cargaMasiva','seguimientos','privilegios','diezmos','gastos','cuadre','inventario','insumos','bautizos','envio','contactos','usuarios','supervisores','pastores','ayudapastor','configuracion','bitacora'],
     'Líder':     ['dashboard','reportes','reporteDigital','formulario','seguimientos'],
     'Secretario':['dashboard','reportes','reporteDigital','generador','seguimientos','envio','contactos'],
     'Tesorero':  ['dashboard','reportes','diezmos','gastos','generador','envio'],
