@@ -7,7 +7,6 @@ from app.routers import reportes, hermanos, seguimientos, auth, telegram, dispat
 from app.models import Usuario
 import bcrypt
 import os
-
 # Crear tablas en BD
 Base.metadata.create_all(bind=engine)
 
@@ -94,6 +93,45 @@ app.include_router(dispatch.router, prefix="/api", tags=["Dispatch"])
 @app.get("/api/health")
 def health():
     return {"status": "ok", "version": "7.0"}
+
+# ── WHATSAPP WEBHOOK (estado real de entrega) ──
+@app.get("/api/whatsapp/webhook")
+def wa_webhook_verify(request: Request):
+    hub_mode = request.query_params.get("hub.mode", "")
+    hub_token = request.query_params.get("hub.verify_token", "")
+    hub_challenge = request.query_params.get("hub.challenge", "")
+    verify_token = os.getenv("WHATSAPP_VERIFY_TOKEN", "redil_verify_2026")
+    if hub_mode == "subscribe" and hub_token == verify_token:
+        return hub_challenge
+    return "Verificación fallida", 403
+
+@app.post("/api/whatsapp/webhook")
+async def wa_webhook(data: dict, request: Request):
+    try:
+        import json
+        from app.database import SessionLocal
+        from app.models import EnvioWhatsapp
+        db = SessionLocal()
+        try:
+            entry = data.get("entry", [{}])[0]
+            changes = entry.get("changes", [])
+            for ch in changes:
+                value = ch.get("value", {})
+                statuses = value.get("statuses", [])
+                for st in statuses:
+                    db.add(EnvioWhatsapp(
+                        wamid=st.get("id", ""),
+                        numero=st.get("recipient_id", ""),
+                        estado=st.get("status", ""),
+                        timestamp=str(st.get("timestamp", "")),
+                        error=json.dumps(st.get("errors", [])) if st.get("errors") else "",
+                    ))
+            db.commit()
+        finally:
+            db.close()
+        return {"status": "ok"}
+    except Exception as e:
+        return {"status": "ok", "error": str(e)}
 
 # ── PDF DOWNLOAD (PDF real desde DB) ──
 @app.get("/api/pdf/{no_serie}")

@@ -7,6 +7,16 @@ WHATSAPP_TEMPLATE = os.getenv("WHATSAPP_TEMPLATE", "alerta_totalappgt")
 WHATSAPP_TEMPLATE_LANG = os.getenv("WHATSAPP_TEMPLATE_LANG", "es_MX")
 WHATSAPP_API = f"https://graph.facebook.com/v22.0/{WHATSAPP_PHONE_ID}/messages" if WHATSAPP_PHONE_ID else ""
 
+def _extract_wamid(resp):
+    try:
+        data = resp.json()
+        msgs = data.get("messages", [])
+        if msgs:
+            return msgs[0].get("id", "")
+    except Exception:
+        pass
+    return ""
+
 def send_whatsapp(to_number, message, db=None):
     if not WHATSAPP_TOKEN or not WHATSAPP_PHONE_ID:
         return {"ok": False, "msg": "WhatsApp no configurado"}
@@ -25,7 +35,7 @@ def send_whatsapp(to_number, message, db=None):
             },
             timeout=15
         )
-        return {"ok": resp.status_code < 400, "msg": resp.text[:200] if resp.status_code >= 400 else "Enviado"}
+        return {"ok": resp.status_code < 400, "msg": resp.text[:200] if resp.status_code >= 400 else "Enviado", "wamid": _extract_wamid(resp) if resp.status_code < 400 else ""}
     except Exception as e:
         return {"ok": False, "msg": str(e)}
 
@@ -53,7 +63,7 @@ def send_whatsapp_document(to_number, pdf_url, caption="", filename="informe.pdf
             },
             timeout=30
         )
-        return {"ok": resp.status_code < 400, "msg": resp.text[:200] if resp.status_code >= 400 else "Documento enviado"}
+        return {"ok": resp.status_code < 400, "msg": resp.text[:200] if resp.status_code >= 400 else "Documento enviado", "wamid": _extract_wamid(resp) if resp.status_code < 400 else ""}
     except Exception as e:
         return {"ok": False, "msg": str(e)}
 
@@ -95,6 +105,6 @@ def send_whatsapp_template(to_number, template_name=None, params=None):
             },
             timeout=15
         )
-        return {"ok": resp.status_code < 400, "msg": resp.text[:200] if resp.status_code >= 400 else "Enviado"}
+        return {"ok": resp.status_code < 400, "msg": resp.text[:200] if resp.status_code >= 400 else "Enviado", "wamid": _extract_wamid(resp) if resp.status_code < 400 else ""}
     except Exception as e:
         return {"ok": False, "msg": str(e)}

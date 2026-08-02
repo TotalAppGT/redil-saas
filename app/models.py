@@ -268,3 +268,13 @@ class GeneradorReporte(Base):
     filtro_distrito = Column(String(10))
     filtro_zona = Column(String(10))
     pdf_data = Column(Text, nullable=True)
+
+class EnvioWhatsapp(Base):
+    __tablename__ = "envios_whatsapp"
+    id = Column(Integer, primary_key=True, index=True)
+    wamid = Column(String(200), index=True)
+    numero = Column(String(50))
+    estado = Column(String(50))
+    timestamp = Column(String(50))
+    error = Column(Text, default="")
+    fecha = Column(DateTime, default=datetime.datetime.utcnow)

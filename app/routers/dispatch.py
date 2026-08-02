@@ -1171,6 +1171,16 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             from app.recurrente_utils import listar_planes
             return listar_planes()
 
+        # ── ESTADOS DE ENTREGA WHATSAPP (webhook) ──
+        if action == "getWhatsappEstados":
+            from app.models import EnvioWhatsapp
+            rows = db.query(EnvioWhatsapp).order_by(EnvioWhatsapp.id.desc()).limit(100).all()
+            return {"ok": True, "data": [
+                {"wamid": r.wamid, "numero": r.numero, "estado": r.estado,
+                 "timestamp": r.timestamp, "error": r.error, "fecha": str(r.fecha)}
+                for r in rows
+            ]}
+
         if action == "crearCheckout":
             from app.recurrente_utils import crear_checkout
             return crear_checkout(
