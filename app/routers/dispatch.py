@@ -23,6 +23,10 @@ SECRET = os.getenv("JWT_SECRET", "redil_secret_key_2026")
 def esc(s):
     return str(s or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace('"',"&quot;").replace("'","&#39;")
 
+def pdf_safe(s):
+    """Convierte texto a latin-1 para fuentes core de fpdf2 (sin emojis ni unicode raro)."""
+    return str(s or "").encode("latin-1", "replace").decode("latin-1")
+
 ALL_MENU_IDS = [
     'dashboard','reportes','reporteDigital','formulario','generador',
     'hermanos','cargaMasiva','seguimientos','privilegios',
@@ -1044,9 +1048,9 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                         pdf.line(0,28,pdf.w,28)  # thin accent line
                         # Left: name + subtitle
                         pdf.set_text_color(255,255,255); pdf.set_font('Helvetica','B',18)
-                        pdf.set_xy(cx,6); pdf.cell(w*0.65,8,str(sys_nom or'REDIL')[:40],0,0,'L')
+                        pdf.set_xy(cx,6); pdf.cell(w*0.65,8,pdf_safe(sys_nom or'REDIL')[:40],0,0,'L')
                         pdf.set_font('Helvetica','',9); pdf.set_text_color(200,215,240)
-                        pdf.set_xy(cx,16); pdf.cell(w*0.65,5,f'{str(tipo)[:50]}  \u2014  {rango_str}  \u2014  {fecha_gen}',0,0,'L')
+                        pdf.set_xy(cx,16); pdf.cell(w*0.65,5,f'{pdf_safe(tipo)[:50]}  -  {pdf_safe(rango_str)}  -  {fecha_gen}',0,0,'L')
                         # Right: ID badge
                         pdf.set_fill_color(255,255,255); pdf.set_text_color(26,58,92)
                         pdf.set_font('Helvetica','B',13); pdf.set_xy(pdf.w-75,5)
@@ -1089,7 +1093,7 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                                 y+=7
                             pdf.set_fill_color(252,254,255) if ri%2==0 else pdf.set_fill_color(247,250,254)
                             pend=r.ofrenda_recibida in("Pendiente",""); of_v=float(r.ofrenda_total or 0)
-                            vals=[str(r.codigo or'-')[:10],str(r.lider or'-')[:30],str(r.fecha)[:10]if r.fecha else'-',f'D{str(r.distrito or"?")} Z{str(r.zona or"?")}',str(r.asistencia or 0),f'Q{of_v:,.2f}',str(r.hnos or 0),str(r.amigos or 0),'']
+                            vals=[pdf_safe(r.codigo or'-')[:10],pdf_safe(r.lider or'-')[:30],str(r.fecha)[:10]if r.fecha else'-',f'D{pdf_safe(r.distrito or"?")} Z{pdf_safe(r.zona or"?")}',str(r.asistencia or 0),f'Q{of_v:,.2f}',str(r.hnos or 0),str(r.amigos or 0),'']
                             # Row bg
                             pdf.set_font('Helvetica','',7.5); x=cx
                             for vi,cw_val3 in enumerate(cw2):
@@ -1116,13 +1120,15 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                         pdf.set_y(y+4); pdf.set_draw_color(59,130,200); pdf.set_line_width(.6)
                         pdf.line(cx,pdf.get_y(),pdf.w-cx,pdf.get_y())
                         pdf.set_font('Helvetica','B',8); pdf.set_text_color(26,58,92)
-                        pdf.set_xy(cx,pdf.get_y()+2); pdf.cell(w*0.5,6,f'{total_grupos} reportes  \u2014  Q{total_ofrenda:,.2f}',0,0,'L')
+                        pdf.set_xy(cx,pdf.get_y()+2); pdf.cell(w*0.5,6,f'{total_grupos} reportes  -  Q{total_ofrenda:,.2f}',0,0,'L')
                         pdf.set_font('Helvetica','',7); pdf.set_text_color(140,150,165)
-                        pdf.set_xy(cx,pdf.get_y()+7); pdf.cell(w,5,'Daniel Martinez  \u2014  Total App GT',0,0,'R')
+                        pdf.set_xy(cx,pdf.get_y()+7); pdf.cell(w,5,'Daniel Martinez  -  Total App GT',0,0,'R')
                         buf=io.BytesIO(); pdf.output(buf); pdf_b64=base64.b64encode(buf.getvalue()).decode()
                         gr.pdf_data=pdf_b64; gr.archivo_generado=f"/api/pdf/{no_serie}"; db.commit()
                         result["pdfUrl"]=f"/api/pdf/{no_serie}"; result["pdfStatus"]="PDF listo"
-                    except Exception as e: pass
+                    except Exception as e:
+                        result["pdfError"]=str(e)
+                        print(f"PDF generarReporte falló ({no_serie}): {e}")
                 except: pass
             return result
 
