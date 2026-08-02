@@ -809,8 +809,13 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                   {sys_nom} · Sistema de Reportes · {datetime.now().strftime('%d/%m/%Y %H:%M')}
                 </div>
               </div></body></html>'''
+            attachments = []
+            for gr in gen_records:
+                if gr.pdf_data:
+                    safe_name = f"redil_{gr.titulo_reporte or 'reporte'}_{gr.no_serie}.pdf".replace(" ", "_")
+                    attachments.append({"filename": safe_name, "content": gr.pdf_data})
             try:
-                send_email(emails_list, subj, full_html, smtp_user=smtp_user, smtp_password=smtp_password)
+                send_email(emails_list, subj, full_html, smtp_user=smtp_user, smtp_password=smtp_password, attachments=attachments if attachments else None)
                 estado = "Enviado"
             except Exception as e:
                 estado = f"Error: {str(e)}"

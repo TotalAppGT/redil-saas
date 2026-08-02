@@ -66,7 +66,6 @@ def send_whatsapp_bulk(numbers, message, pdf_url=None):
         results.append(r)
     ok_count = sum(1 for r in results if r.get("ok"))
     return {"ok": ok_count > 0, "msg": f"Enviado a {ok_count}/{len(numbers)} contactos"}
-    return {"ok": ok_count > 0, "msg": f"Enviado a {ok_count}/{len(numbers)} contactos"}
 
 def send_whatsapp_template(to_number, template_name, params=None):
     if not WHATSAPP_TOKEN or not WHATSAPP_PHONE_ID:
