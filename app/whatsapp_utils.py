@@ -3,6 +3,8 @@ import os
 
 WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN", "EAATUvL0iC3cBSNsEmoNdwUmKBu3ZBaFhMES58Ym2onRFKMF8DwzZCe9O3N5YJDtlfHjnBYYbZBY1QBY2UnUAiO5wP6KAOwXKz500tAZApd0eHiLOVdHu7PFCmptpuWYEg4xXiib2MfhZB1cwQZAexBteGrxX8ZBlVfpAdZBq3TltNL4mekJbu2p8wNukEyT53gZDZD")
 WHATSAPP_PHONE_ID = os.getenv("WHATSAPP_PHONE_ID", "1178159198722196")
+WHATSAPP_TEMPLATE = os.getenv("WHATSAPP_TEMPLATE", "alerta_totalappgt")
+WHATSAPP_TEMPLATE_LANG = os.getenv("WHATSAPP_TEMPLATE_LANG", "es_MX")
 WHATSAPP_API = f"https://graph.facebook.com/v22.0/{WHATSAPP_PHONE_ID}/messages" if WHATSAPP_PHONE_ID else ""
 
 def send_whatsapp(to_number, message, db=None):
@@ -67,15 +69,17 @@ def send_whatsapp_bulk(numbers, message, pdf_url=None):
     ok_count = sum(1 for r in results if r.get("ok"))
     return {"ok": ok_count > 0, "msg": f"Enviado a {ok_count}/{len(numbers)} contactos"}
 
-def send_whatsapp_template(to_number, template_name, params=None):
+def send_whatsapp_template(to_number, template_name=None, params=None):
+    """Send approved WhatsApp template. Template alerta_totalappgt body: 'Notificacion: {{1}} Abre el enlace en tu correo.'"""
     if not WHATSAPP_TOKEN or not WHATSAPP_PHONE_ID:
         return {"ok": False, "msg": "WhatsApp no configurado"}
     try:
+        tname = template_name or WHATSAPP_TEMPLATE
         body = {
             "messaging_product": "whatsapp",
             "to": str(to_number).replace("+", "").replace(" ", "").replace("-", ""),
             "type": "template",
-            "template": {"name": template_name, "language": {"code": "es"}}
+            "template": {"name": tname, "language": {"code": WHATSAPP_TEMPLATE_LANG}}
         }
         if params:
             body["template"]["components"] = [{

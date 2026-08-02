@@ -1151,12 +1151,19 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
 
         # ── ENVÍO MASIVO WHATSAPP (desde Centro Envíos) ──
         if action == "enviarWhatsappMasivo":
-            from app.whatsapp_utils import send_whatsapp_bulk
+            from app.whatsapp_utils import send_whatsapp_bulk, send_whatsapp_template
             numbers = payload.get("numeros", [])
             msg = payload.get("mensaje", "")
             pdf_url = payload.get("pdfUrl", "")
+            usar_plantilla = payload.get("usarPlantilla", False)
             if not numbers or not msg:
                 return {"ok": False, "msg": "Números y mensaje requeridos"}
+            # Con plantilla aprobada (funciona fuera de la ventana de 24h)
+            if usar_plantilla:
+                var_texto = pdf_url if pdf_url else msg
+                results = [send_whatsapp_template(n, params=[var_texto]) for n in numbers]
+                ok_count = sum(1 for r in results if r.get("ok"))
+                return {"ok": ok_count > 0, "msg": f"Plantilla enviada a {ok_count}/{len(numbers)} contactos"}
             return send_whatsapp_bulk(numbers, msg, pdf_url if pdf_url else None)
 
         # ── RECURRENTE (PAGOS) ──
