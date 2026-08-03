@@ -277,7 +277,7 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
         if action == "buscarLiderFormulario":
             query = payload.get("query", "")
             h = db.query(Hermano).filter(
-                (func.lower(Hermano.codigo_lead) == query.lower()) | (Hermano.nombre.ilike(f"%{query}%"))
+                (Hermano.codigo_lead.ilike(f"%{query}%")) | (Hermano.nombre.ilike(f"%{query}%"))
             ).first()
             if h: return {"ok": True, "data": db_to_gas(h, HERMANO_MAP)}
             return {"ok": False, "msg": "No encontrado"}

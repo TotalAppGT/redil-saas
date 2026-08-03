@@ -2725,12 +2725,17 @@ function renderEnvio(el){
 }
 
 let _envAllReportes=[];
+let _whatsappContacts=[];
 function recargarEnvio(){
   // Cargar contactos
   call('getContactos',{},(_, c)=>{
     APP.contactos=Array.isArray(c)?c:APP.contactos;
-    const el=document.getElementById('envCnts');
-    if(el)fillEnvContacts(el);
+    // Also load WhatsApp contacts from notificaciones
+    call('getContactosWhatsapp',{},(_, w)=>{
+      _whatsappContacts=Array.isArray(w.data)?w.data:[];
+      const el=document.getElementById('envCnts');
+      if(el)fillEnvContacts(el);
+    });
   });
   // Cargar historial
   call('getEnvios',{},(_, d)=>{
@@ -2841,7 +2846,9 @@ function fillEnvContacts(el){
   const emailCnts = APP.contactos.filter(c=>c['Correo']);
   const waCnts = APP.contactos.filter(c=>(c['WhatsApp']||c['Telefono']));
   const all = [...new Set([...emailCnts, ...waCnts])];
-  if(!all.length){
+  // Agregar contactos WhatsApp directos de la DB (supervisores, pastores, etc)
+  const waDB=_whatsappContacts||[];
+  if(!all.length && !waDB.length){
     el.innerHTML='<div class="empty-r" style="padding:12px"><i class="fas fa-address-book"></i><p>Sin contactos. <a onclick="nav(\'contactos\')" style="color:var(--pr2);cursor:pointer;font-weight:700">Agregar</a></p></div>';
     return;
   }
@@ -2864,6 +2871,19 @@ function fillEnvContacts(el){
       div.innerHTML+='<span style="color:#25D366;cursor:pointer;font-weight:600" onclick="event.stopPropagation();addWaCnt(\''+num+'\')"><i class="fab fa-whatsapp"></i> '+num+'</span>';
     }
     div.innerHTML+='</div></div>';
+    el.appendChild(div);
+  });
+  // Agregar contactos WhatsApp directos desde DB
+  waDB.forEach(c=>{
+    var num=String(c.numero||'').replace(/\D/g,'');
+    if(num.length===8) num='502'+num;
+    if(!num||num.length<8) return;
+    var div=document.createElement('div');
+    div.className='ri';
+    div.style.cssText='cursor:pointer;padding:6px 8px;border-radius:6px;transition:.15s;display:flex;align-items:center;gap:8px';
+    div.onmouseenter=function(){div.style.background='var(--bg3)';};
+    div.onmouseleave=function(){div.style.background='';};
+    div.innerHTML='<div class="rinfo" style="flex:1"><div class="rn" style="font-size:11px">'+esc(c.nombre||'Sin nombre')+' <span style="font-size:10px;color:var(--tx2)">('+esc(c.tipo||'WhatsApp')+')</span></div><div style="display:flex;gap:8px;font-size:10px;align-items:center"><span style="color:#25D366;cursor:pointer;font-weight:600" onclick="event.stopPropagation();addWaCnt(\''+num+'\')"><i class="fab fa-whatsapp"></i> '+num+'</span></div></div>';
     el.appendChild(div);
   });
 }
