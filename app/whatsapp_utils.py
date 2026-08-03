@@ -117,6 +117,12 @@ def send_whatsapp_document(to_number, pdf_url, caption="", filename="informe.pdf
         return {"ok": False, "msg": "WhatsApp no configurado"}
     try:
         clean_number = str(to_number).replace("+", "").replace(" ", "").replace("-", "")
+        fn = filename or "informe.pdf"
+        if fn == "informe.pdf" and pdf_url:
+            parts = pdf_url.strip("/").split("/")
+            if parts:
+                no_serie = parts[-1]
+                fn = f"REDIL_{no_serie}.pdf"
         resp = httpx.post(
             WHATSAPP_API,
             json={
@@ -125,7 +131,7 @@ def send_whatsapp_document(to_number, pdf_url, caption="", filename="informe.pdf
                 "type": "document",
                 "document": {
                     "link": pdf_url,
-                    "filename": filename,
+                    "filename": fn,
                     "caption": caption[:1024] if caption else None
                 }
             },
