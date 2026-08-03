@@ -2888,21 +2888,15 @@ function fillEnvEmailContacts(el){
 }
 function fillEnvWAContacts(el){
   if(!el)return;
-  // Combinar contactos de DB (Tabla Contactos) + WhatsApp contacts (notificaciones)
   var allWa=[];
   (APP.contactos||[]).forEach(function(c){
     var num=String(c['WhatsApp']||c['Telefono']||'').replace(/\D/g,'');
     if(num.length===8)num='502'+num;
-    if(num&&num.length>=8)allWa.push({nombre:c['Nombre']||'',numero:num,origen:'Contacto'});
-  });
-  (_whatsappContacts||[]).forEach(function(c){
-    var num=String(c.numero||'').replace(/\D/g,'');
-    if(num.length===8)num='502'+num;
-    if(num&&num.length>=8)allWa.push({nombre:c.nombre||'',numero:num,origen:c.tipo||'Sistema'});
+    if(num&&num.length>=8)allWa.push({nombre:c['Nombre']||'',numero:num});
   });
   var seen={}; allWa=allWa.filter(function(x){if(seen[x.numero])return false;seen[x.numero]=true;return true;});
   if(!allWa.length){
-    el.innerHTML='<div class="empty-r" style="padding:12px"><i class="fab fa-whatsapp" style="color:#25D366"></i><p>Sin contactos WhatsApp.<br>Agrega en <a onclick="nav(\'notificaciones\')" style="color:var(--pr2);cursor:pointer;font-weight:700">Notificaciones</a></p></div>';
+    el.innerHTML='<div class="empty-r" style="padding:12px"><i class="fab fa-whatsapp" style="color:#25D366"></i><p>Sin contactos WhatsApp.<br>Agrega en Tabla de Contactos</p></div>';
     return;
   }
   el.innerHTML='';
