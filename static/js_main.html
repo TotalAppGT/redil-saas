@@ -4847,20 +4847,63 @@ function editNotif(id){
   var fqs={'una_vez':'Una vez','diaria':'Diaria','semanal':'Semanal','mensual':'Mensual'};
   var ds='<option value="">--</option>'+['Lunes','Martes','Miercoles','Jueves','Viernes','Sabado','Domingo'].map(function(d,i){return '<option value="'+i+'"'+(n.dia_semana===i?' selected':'')+'>'+d+'</option>';}).join('');
   var dm='<option value="">--</option>'+Array.from({length:31},function(_,i){var d=i+1;return '<option'+(n.dia_mes===d?' selected':'')+'>'+d+'</option>';}).join('');
+  // Parse hora to AM/PM
+  var h=horaToAMPM(n.hora_envio||'08:00');
+  var aopts=''; for(var ampm=0;ampm<24;ampm++){var hh=ampm%12||12;var ap=ampm<12?'AM':'PM';var tv=String(ampm).padStart(2,'0')+':00';aopts+='<option value="'+tv+'"'+(ampm===h.hour?' selected':'')+'>'+hh+':00 '+ap+'</option>';}
+  
   var body='<div class="fg2">'
-    +'<div class="fgg full"><label>Titulo</label><input class="fc" id="nfTitulo" value="'+esc(n.titulo||'')+'" placeholder="Ej: Recordatorio Reunion de Lideres"></div>'
-    +'<div class="fgg full"><label>Mensaje <span class="req">*</span></label><textarea class="fc" id="nfMensaje" rows="3" placeholder="Escribe el mensaje de la notificacion...">'+esc(n.mensaje||'')+'</textarea></div>'
+    +'<div class="fgg full"><label>Titulo</label><input class="fc" id="nfTitulo" value="'+esc(n.titulo||'')+'" placeholder="Ej: Recordatorio Reunion"></div>'
+    +'<div class="fgg full"><label>Mensaje <span class="req">*</span></label><textarea class="fc" id="nfMensaje" rows="3" placeholder="Mensaje personalizado...">'+esc(n.mensaje||'')+'</textarea></div>'
     +'<div class="fgg"><label>Frecuencia</label><select class="fc" id="nfFreq" onchange="nfFreqChange()">'+Object.keys(fqs).map(function(k){return '<option value="'+k+'"'+(n.frecuencia===k?' selected':'')+'>'+fqs[k]+'</option>';}).join('')+'</select></div>'
-    +'<div class="fgg"><label>Hora de envio</label><input class="fc" type="time" id="nfHora" value="'+(n.hora_envio||'08:00')+'"></div>'
-    +'<div class="fgg" id="nfDiaS" style="display:'+(n.frecuencia==='semanal'?'block':'none')+'"><label>Dia de la semana</label><select class="fc" id="nfDiaSemana">'+ds+'</select></div>'
+    +'<div class="fgg"><label>Hora de envio</label><select class="fc" id="nfHora">'+aopts+'</select></div>'
+    +'<div class="fgg" id="nfDiaS" style="display:'+(n.frecuencia==='semanal'?'block':'none')+'"><label>Dia semana</label><select class="fc" id="nfDiaSemana">'+ds+'</select></div>'
     +'<div class="fgg" id="nfDiaM" style="display:'+(n.frecuencia==='mensual'?'block':'none')+'"><label>Dia del mes</label><select class="fc" id="nfDiaMes">'+dm+'</select></div>'
     +'<div class="fgg"><label>Estado</label><select class="fc" id="nfActivo"><option value="1"'+(n.activo!==false?' selected':'')+'>Activo</option><option value="0"'+(n.activo===false?' selected':'')+'>Inactivo</option></select></div>'
     +'</div>'
-    +'<div style="margin-top:12px"><label id="nfDestLabel" style="font-weight:600;display:block;margin-bottom:8px"><i class="fas fa-users"></i> Destinatarios ('+dests.length+')</label>'
-    +'<div id="nfDestList" style="max-height:150px;overflow-y:auto;margin-bottom:8px"></div>'
-    +'<div style="display:flex;gap:8px"><input class="fc" id="nfNum" placeholder="+502 XXXX-XXXX" style="flex:1"><input class="fc" id="nfNom" placeholder="Nombre" style="flex:1"><button class="btn btn-in btn-sm" onclick="addDest()"><i class="fas fa-plus"></i> Agregar</button><button class="btn btn-ok btn-sm" onclick="guardarContactoDesdeNotif()" title="Guardar numero en Tabla de Contactos para que aparezca en Centro de Envios"><i class="fas fa-save"></i> Guardar en Contactos</button></div></div>';
+    +'<div style="margin-top:14px;border-top:1px solid var(--brd);padding-top:12px">'
+    +'<label style="font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center"><span id="nfDestLabel"><i class="fas fa-users"></i> Destinatarios ('+dests.length+')</span>'
+    +'<button class="btn btn-ol btn-sm" onclick="syncContactosWhatsapp()" title="Cargar contactos del sistema"><i class="fas fa-sync-alt"></i> Cargar Contactos</button></label>'
+    +'<div id="nfDestList" style="max-height:180px;overflow-y:auto;margin-bottom:10px"></div>'
+    +'<div style="display:flex;gap:6px;margin-bottom:8px">'
+    +'<input class="fc" id="nfNum" placeholder="+502 XXXX-XXXX" style="flex:1"><input class="fc" id="nfNom" placeholder="Nombre" style="flex:1">'
+    +'<button class="btn btn-in btn-sm" onclick="addDest()"><i class="fas fa-plus"></i></button>'
+    +'<button class="btn btn-ok btn-sm" onclick="guardarContactoDesdeNotif()" title="Guardar en DB Contactos"><i class="fas fa-save"></i></button></div>'
+    +'<div style="display:flex;gap:6px">'
+    +'<select class="fc" id="nfGrupo" style="flex:1"><option value="">Agregar por Grupo...</option>'+
+      (APP.hermanos?[...new Set(APP.hermanos.map(function(h){return h['Grupo'];}).filter(Boolean))].sort().map(function(g){
+        var count=APP.hermanos.filter(function(h){return h['Grupo']===g;}).length;
+        return '<option value="'+esc(g)+'">Grupo '+esc(g)+' ('+count+' lideres)</option>';
+      }).join(''):'')+'</select>'
+    +'<button class="btn btn-ac btn-sm" onclick="addGrupoDest()"><i class="fas fa-layer-group"></i> Agregar Grupo</button></div>'
+    +'<div id="notifDests" style="margin-top:8px;max-height:150px;overflow-y:auto"></div>'
+    +'</div>';
   openModal(id?'Editar Notificacion':'Nueva Notificacion',body,mFoot(id?"saveNotif('"+id+"')":'saveNotif()',id?'Actualizar':'Guardar'));
   setTimeout(function(){nfFreqChange();renderDestList();},100);
+}
+function horaToAMPM(horaStr){
+  var parts=(horaStr||'08:00').split(':');var hh=parseInt(parts[0])||8;var mm=parts[1]||'00';
+  return {hour:hh,minute:mm,ampm:hh>=12?'PM':'AM',display:(hh%12||12)+':'+mm+' '+(hh>=12?'PM':'AM')};
+}
+function addGrupoDest(){
+  var g=g('nfGrupo');if(!g){toast('Selecciona un grupo','wa');return;}
+  var hermanos=APP.hermanos||[];
+  var lideres=hermanos.filter(function(h){return h['Grupo']===g;});
+  if(!lideres.length){toast('Sin lideres en ese grupo','wa');return;}
+  var agregados=0;
+  lideres.forEach(function(h){
+    // Buscar telefono en contactos
+    var tel='';
+    if(APP.contactos){
+      var c=APP.contactos.find(function(x){return x['Nombre']===h['NombreL'];});
+      if(c)tel=(c['WhatsApp']||c['Telefono']||'').replace(/[^0-9]/g,'');
+    }
+    if(!tel||tel.length<8)return;
+    var ya=_notifDest.some(function(d){return d.numero===tel;});
+    if(!ya){_notifDest.push({numero:tel,nombre:h['NombreL']});agregados++;}
+  });
+  renderDestList();
+  var lbl=document.querySelector('#nfDestLabel');if(lbl)lbl.innerHTML='<i class="fas fa-users"></i> Destinatarios ('+_notifDest.length+')';
+  toast(agregados+' lideres del Grupo '+g+' agregados','ok');
 }
 function nfFreqChange(){
   var f=g('nfFreq');document.getElementById('nfDiaS').style.display=f==='semanal'?'block':'none';
@@ -4868,9 +4911,11 @@ function nfFreqChange(){
 }
 function renderDestList(){
   var el=document.getElementById('nfDestList');if(!el)return;
-  if(!_notifDest.length){el.innerHTML='<div style="color:var(--tx2);font-size:12px;padding:8px">Sin destinatarios. Agrega desde la DB o manualmente.</div>';return;}
+  if(!_notifDest.length){el.innerHTML='<div style="color:var(--tx2);font-size:12px;padding:10px;background:#fafbfc;border-radius:8px;text-align:center"><i class="fas fa-user-plus"></i> Sin destinatarios. Agrega numeros manualmente o carga contactos del sistema.</div>';return;}
   el.innerHTML=_notifDest.map(function(d,i){
-    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:#f8f9fe;border-radius:6px;margin:4px 0;font-size:13px"><span><b>'+esc(d.nombre||'')+'</b> '+esc(d.numero||'')+'</span><button class="ab-btn ab-del" style="padding:2px 6px;font-size:11px" onclick="removeDest('+i+')"><i class="fas fa-times"></i></button></div>';
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#f8f9fe;border-radius:8px;margin:4px 0;font-size:13px;border:1px solid #eef0f5">'
+      +'<span><b>'+esc(d.nombre||'Sin nombre')+'</b> <span style="color:var(--pr2);font-family:monospace;font-size:12px">'+esc(d.numero||'')+'</span></span>'
+      +'<button class="ab-btn ab-del" style="padding:4px 8px;font-size:11px;flex-shrink:0" onclick="removeDest('+i+')"><i class="fas fa-trash-alt"></i> Quitar</button></div>';
   }).join('');
 }
 function addDest(){
