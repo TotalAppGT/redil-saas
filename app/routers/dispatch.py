@@ -62,6 +62,8 @@ def _construir_mensaje_notificacion(tipo, titulo, mensaje, evento, lugar, hora_e
     if info_extra: p.append(info_extra)
     from datetime import datetime
     p.append(f"\U0001f4c5 {datetime.now().strftime('%d/%m/%Y')}")
+    if tipo in ("reporte", "alerta"):
+        p.append("\U0001f517 Ingresa al sistema: redilrestauracion.totalappgt.online")
     return sep.join(p)
 
 ALL_MENU_IDS = [
