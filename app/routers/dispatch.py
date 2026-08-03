@@ -28,15 +28,13 @@ def pdf_safe(s):
     return str(s or "").encode("latin-1", "replace").decode("latin-1")
 
 def _formatear_whatsapp(msg, pdf_url=""):
-    """Formatea mensaje profesional para WhatsApp con emojis y contexto.
-    El template de Meta es: 'Notificacion: {{1}} Abre el enlace en tu correo.'"""
     from datetime import datetime
     fecha = datetime.now().strftime("%d/%m/%Y")
     msg = str(msg or "").strip()
     hay_pdf = bool(pdf_url and pdf_url.strip())
     if hay_pdf:
-        return f"\U0001f4ca *REDIL Restauracion*\n\U0001f4c4 *Reporte generado:* {msg}\n\U0001f4c5 {fecha}\n\U000026a1 Abra el enlace en su correo para ver el documento completo."
-    return f"\U0001f514 *REDIL Restauracion*\n{msg}\n\U0001f4c5 {fecha}"
+        return f"\U0001f4ca *REDIL Restauracion* \U0001f4c4 *Reporte:* {msg} \U0001f4c5 {fecha} \U000026a1 Revise su correo para el documento completo."
+    return f"\U0001f514 *REDIL Restauracion* | {msg} | \U0001f4c5 {fecha}"
 
 ALL_MENU_IDS = [
     'dashboard','reportes','reporteDigital','formulario','generador',
