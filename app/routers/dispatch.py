@@ -1216,6 +1216,8 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             rows = db.query(Notificacion).order_by(Notificacion.timestamp.desc()).all()
             return {"ok": True, "data": [
                 {"id": n.id, "titulo": n.titulo, "mensaje": n.mensaje,
+                 "tipo": n.tipo, "evento": n.evento, "lugar": n.lugar,
+                 "hora_evento": n.hora_evento, "info_extra": n.info_extra,
                  "frecuencia": n.frecuencia, "dia_semana": n.dia_semana,
                  "dia_mes": n.dia_mes, "hora_envio": n.hora_envio,
                  "activo": n.activo, "destinatarios": n.destinatarios,
