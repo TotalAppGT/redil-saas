@@ -439,6 +439,7 @@ function recargarFormulario(){
 }
 
 var _sugTimer=null;
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 function onCodigoInput(){
   try{
   document.getElementById('liderInfo').style.display='none';
