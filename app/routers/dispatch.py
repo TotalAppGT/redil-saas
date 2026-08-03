@@ -1181,6 +1181,20 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                 for r in rows
             ]}
 
+        if action == "getWhatsappMensajes":
+            from app.models import MensajeRecibido
+            rows = db.query(MensajeRecibido).order_by(MensajeRecibido.id.desc()).limit(100).all()
+            return {"ok": True, "data": [
+                {"id": r.id, "wamid": r.wamid, "remitente": r.remitente,
+                 "internal_user_id": r.internal_user_id, "tipo": r.tipo,
+                 "contenido": r.contenido, "procesado": r.procesado, "fecha": str(r.fecha)}
+                for r in rows
+            ]}
+
+        if action == "sincronizarContactosProxy":
+            from app.whatsapp_utils import sincronizar_contactos_proxy
+            return sincronizar_contactos_proxy(db)
+
         if action == "crearCheckout":
             from app.recurrente_utils import crear_checkout
             return crear_checkout(

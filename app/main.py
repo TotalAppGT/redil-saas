@@ -94,7 +94,7 @@ app.include_router(dispatch.router, prefix="/api", tags=["Dispatch"])
 def health():
     return {"status": "ok", "version": "7.0"}
 
-# ── WHATSAPP WEBHOOK (estado real de entrega) ──
+# ── WHATSAPP WEBHOOK (estado real de entrega + mensajes entrantes) ──
 @app.get("/api/whatsapp/webhook")
 def wa_webhook_verify(request: Request):
     hub_mode = request.query_params.get("hub.mode", "")
@@ -103,20 +103,26 @@ def wa_webhook_verify(request: Request):
     verify_token = os.getenv("WHATSAPP_VERIFY_TOKEN", "redil_verify_2026")
     if hub_mode == "subscribe" and hub_token == verify_token:
         return hub_challenge
-    return "Verificación fallida", 403
+    return "Verificacion fallida", 403
 
 @app.post("/api/whatsapp/webhook")
 async def wa_webhook(data: dict, request: Request):
     try:
         import json
         from app.database import SessionLocal
-        from app.models import EnvioWhatsapp
+        from app.models import EnvioWhatsapp, MensajeRecibido
         db = SessionLocal()
         try:
-            entry = data.get("entry", [{}])[0]
+            proxy_forwarded = request.headers.get("X-Proxy-Forwarded", "")
+            internal_user_id = data.get("_internal_user_id") if isinstance(data, dict) else None
+
+            entry = data.get("entry", [{}])[0] if isinstance(data, dict) else {}
             changes = entry.get("changes", [])
+
             for ch in changes:
                 value = ch.get("value", {})
+
+                # Statuses de entrega
                 statuses = value.get("statuses", [])
                 for st in statuses:
                     db.add(EnvioWhatsapp(
@@ -126,6 +132,34 @@ async def wa_webhook(data: dict, request: Request):
                         timestamp=str(st.get("timestamp", "")),
                         error=json.dumps(st.get("errors", [])) if st.get("errors") else "",
                     ))
+
+                # Mensajes entrantes (respuestas de usuarios)
+                messages = value.get("messages", [])
+                for msg in messages:
+                    msg_type = msg.get("type", "text")
+                    content = ""
+                    if msg_type == "text":
+                        content = msg.get("text", {}).get("body", "")
+                    elif msg_type == "button":
+                        content = msg.get("button", {}).get("text", "")
+                    elif msg_type == "interactive":
+                        interactive = msg.get("interactive", {})
+                        if interactive.get("type") == "button_reply":
+                            content = interactive.get("button_reply", {}).get("title", "")
+                        elif interactive.get("type") == "list_reply":
+                            content = interactive.get("list_reply", {}).get("title", "")
+                    else:
+                        content = json.dumps(msg.get(msg_type, {}))
+
+                    db.add(MensajeRecibido(
+                        wamid=msg.get("id", ""),
+                        remitente=msg.get("from", ""),
+                        internal_user_id=str(internal_user_id) if internal_user_id else None,
+                        tipo=msg_type,
+                        contenido=content,
+                        raw_json=json.dumps(data, ensure_ascii=False),
+                    ))
+
             db.commit()
         finally:
             db.close()

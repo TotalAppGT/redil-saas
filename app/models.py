@@ -278,3 +278,15 @@ class EnvioWhatsapp(Base):
     timestamp = Column(String(50))
     error = Column(Text, default="")
     fecha = Column(DateTime, default=datetime.datetime.utcnow)
+
+class MensajeRecibido(Base):
+    __tablename__ = "mensajes_recibidos"
+    id = Column(Integer, primary_key=True, index=True)
+    wamid = Column(String(200), index=True)
+    remitente = Column(String(50), index=True)
+    internal_user_id = Column(String(100), nullable=True)
+    tipo = Column(String(50))
+    contenido = Column(Text)
+    raw_json = Column(Text)
+    procesado = Column(Boolean, default=False)
+    fecha = Column(DateTime, default=datetime.datetime.utcnow)
