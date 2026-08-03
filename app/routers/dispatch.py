@@ -28,45 +28,41 @@ def pdf_safe(s):
     return str(s or "").encode("latin-1", "replace").decode("latin-1")
 
 def _formatear_whatsapp(msg, pdf_url=""):
-    """Formato profesional con doble espacio entre secciones. Template: 'Notificacion: {{1}} Abre el enlace en tu correo.'"""
+    sep = " | "
     from datetime import datetime
     fecha = datetime.now().strftime("%d/%m/%Y")
     msg = str(msg or "").strip()
-    sep = "  "
     hay_pdf = bool(pdf_url and pdf_url.strip())
     if hay_pdf:
-        return f"\U0001f4ca *REDIL Restauracion*{sep}\U0001f4c4 *Reporte:*{sep}{msg}{sep}\U0001f4c5 {fecha}"
-    return f"\U0001f514 *REDIL Restauracion*{sep}{msg}{sep}\U0001f4c5 {fecha}"
+        return f"\U0001f4ca REDIL{sep}\U0001f4c4 {msg}{sep}\U0001f4c5 {fecha}"
+    return f"\U0001f514 REDIL{sep}{msg}{sep}\U0001f4c5 {fecha}"
 
 def _construir_mensaje_notificacion(tipo, titulo, mensaje, evento, lugar, hora_evento, info_extra):
-    """Construye mensaje estructurado segun tipo de notificacion."""
-    sep = "  "
+    sep = " | "
+    p = []
     if tipo == "recordatorio":
-        partes = [f"\U0001f514 *REDIL Restauracion*", f"\U0001f4e2 *Recordatorio:* {titulo or evento or 'Evento'}"]
-        if evento: partes.append(f"\U0001f4c5 {evento}")
-        if hora_evento: partes.append(f"\U0001f550 {hora_evento}")
-        if lugar: partes.append(f"\U0001f3db {lugar}")
-        if mensaje: partes.append(f"\U0001f4cb {mensaje}")
-        if info_extra: partes.append(f"\U00002139 {info_extra}")
+        p = [f"\U0001f514 *REDIL Restauracion*", f"\U0001f4e2 *{titulo or evento or 'Recordatorio'}*"]
+        if evento: p.append(f"\U0001f4c5 {evento}")
+        if hora_evento: p.append(f"\U0001f550 {hora_evento}")
+        if lugar: p.append(f"\U0001f3db {lugar}")
+        if mensaje: p.append(f"\U0001f4cb {mensaje}")
     elif tipo == "reporte":
-        partes = [f"\U0001f4ca *REDIL Restauracion*", f"\U0001f4c4 *Reporte:* {titulo or 'Informe'}"]
-        if mensaje: partes.append(f"\U0001f4ca {mensaje}")
-        if info_extra: partes.append(f"\U0001f4c8 {info_extra}")
+        p = [f"\U0001f4ca *REDIL Restauracion*", f"\U0001f4c4 *{titulo or 'Informe'}*"]
+        if mensaje: p.append(mensaje)
     elif tipo == "alerta":
-        partes = [f"\U000026a0 *REDIL Restauracion*", f"\U0001f6a8 *Alerta:* {titulo or mensaje}"]
-        if mensaje and titulo: partes.append(f"\U0001f4cb {mensaje}")
-        if info_extra: partes.append(f"\U0001f4de {info_extra}")
+        p = [f"\U000026a0 *REDIL Restauracion*", f"\U0001f6a8 *{titulo or mensaje or 'Alerta'}*"]
+        if mensaje and titulo: p.append(mensaje)
     else:
-        partes = [f"\U0001f514 *REDIL Restauracion*"]
-        if titulo: partes.append(f"\U0001f4e2 {titulo}")
-        if mensaje: partes.append(f"\U0001f4cb {mensaje}")
-        if evento: partes.append(f"\U0001f4c5 {evento}")
-        if hora_evento: partes.append(f"\U0001f550 {hora_evento}")
-        if lugar: partes.append(f"\U0001f3db {lugar}")
-        if info_extra: partes.append(f"\U00002139 {info_extra}")
+        p = [f"\U0001f514 *REDIL Restauracion*"]
+        if titulo: p.append(f"\U0001f4e2 {titulo}")
+        if mensaje: p.append(mensaje)
+        if evento: p.append(f"\U0001f4c5 {evento}")
+        if hora_evento: p.append(f"\U0001f550 {hora_evento}")
+        if lugar: p.append(f"\U0001f3db {lugar}")
+    if info_extra: p.append(info_extra)
     from datetime import datetime
-    partes.append(f"\U0001f4c5 {datetime.now().strftime('%d/%m/%Y')}")
-    return sep.join(partes)
+    p.append(f"\U0001f4c5 {datetime.now().strftime('%d/%m/%Y')}")
+    return sep.join(p)
 
 ALL_MENU_IDS = [
     'dashboard','reportes','reporteDigital','formulario','generador',

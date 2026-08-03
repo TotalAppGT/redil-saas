@@ -275,7 +275,7 @@ def _procesar_notificaciones_pendientes():
                         n.evento, n.lugar, n.hora_evento, n.info_extra
                     )
                     if wa_links:
-                        msg_wa += "  " + "  ".join(wa_links[:2])
+                        msg_wa += " | " + " | ".join(wa_links[:2])
                     for d in dests:
                         num = str(d.get("numero", "")).replace("+", "").replace(" ", "").replace("-", "")
                         if not num or len(num) < 8:
