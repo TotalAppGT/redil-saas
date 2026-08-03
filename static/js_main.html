@@ -4864,6 +4864,7 @@ function editNotif(id){
   try{dests=JSON.parse((n.destinatarios||'[]'));}catch(e){}
   _notifDest=dests;
   var fqs={'una_vez':'Una vez','diaria':'Diaria','semanal':'Semanal','mensual':'Mensual'};
+  var tipos={'general':'General','recordatorio':'Recordatorio','alerta':'Alerta','reporte':'Reporte'};
   var ds='<option value="">--</option>'+['Lunes','Martes','Miercoles','Jueves','Viernes','Sabado','Domingo'].map(function(d,i){return '<option value="'+i+'"'+(n.dia_semana===i?' selected':'')+'>'+d+'</option>';}).join('');
   var dm='<option value="">--</option>'+Array.from({length:31},function(_,i){var d=i+1;return '<option'+(n.dia_mes===d?' selected':'')+'>'+d+'</option>';}).join('');
   // Parse hora to AM/PM
@@ -4872,8 +4873,11 @@ function editNotif(id){
   var horaCustom=(n.hora_envio&&n.hora_envio!=='08:00'&&(parseInt((n.hora_envio||'').split(':')[0])%1===0));
   
   var body='<div class="fg2">'
-    +'<div class="fgg full"><label>Titulo</label><input class="fc" id="nfTitulo" value="'+esc(n.titulo||'')+'" placeholder="Ej: Recordatorio Reunion"></div>'
-    +'<div class="fgg full"><label>Mensaje <span class="req">*</span></label><textarea class="fc" id="nfMensaje" rows="3" placeholder="Mensaje personalizado...">'+esc(n.mensaje||'')+'</textarea></div>'
+    +'<div class="fgg full"><label>Titulo</label><input class="fc" id="nfTitulo" value="'+esc(n.titulo||'')+'" placeholder="Ej: Reunion de Lideres"></div>'
+    +'<div class="fgg"><label>Tipo</label><select class="fc" id="nfTipo" onchange="nfTipoChange()">'+Object.keys(tipos).map(function(k){return '<option value="'+k+'"'+(n.tipo===k?' selected':'')+'>'+tipos[k]+'</option>';}).join('')+'</select></div>'
+    +'<div id="nfFieldsEvento" style="display:'+(n.tipo==='recordatorio'?'block':'none')+'"><div class="fgg"><label>Evento</label><input class="fc" id="nfEvento" value="'+esc(n.evento||'')+'" placeholder="Nombre del evento"></div><div class="row2"><div class="fgg"><label>Hora del evento</label><input class="fc" type="time" id="nfHoraEvento" value="'+esc(n.hora_evento||'')+'"></div><div class="fgg"><label>Lugar</label><input class="fc" id="nfLugar" value="'+esc(n.lugar||'')+'" placeholder="Iglesia Central"></div></div></div>'
+    +'<div id="nfFieldsMensaje"><div class="fgg full"><label>Mensaje</label><textarea class="fc" id="nfMensaje" rows="3" placeholder="Contenido del mensaje...">'+esc(n.mensaje||'')+'</textarea></div></div>'
+    +'<div class="fgg"><label>Info extra</label><input class="fc" id="nfInfoExtra" value="'+esc(n.info_extra||'')+'" placeholder="Telefono, datos adicionales..."></div>'
     +'<div class="fgg"><label>Frecuencia</label><select class="fc" id="nfFreq" onchange="nfFreqChange()">'+Object.keys(fqs).map(function(k){return '<option value="'+k+'"'+(n.frecuencia===k?' selected':'')+'>'+fqs[k]+'</option>';}).join('')+'</select></div>'
     +'<div class="fgg"><label>Hora de envio <span style="font-size:11px;font-weight:400;cursor:pointer;color:var(--pr2);margin-left:8px" onclick="toggleHoraCustom()">(personalizar)</span></label>'
     +'<select class="fc" id="nfHora">'+aopts+'</select>'
@@ -4904,7 +4908,7 @@ function editNotif(id){
     +'<div id="notifDests" style="margin-top:8px;max-height:150px;overflow-y:auto"></div>'
     +'</div>';
   openModal(id?'Editar Notificacion':'Nueva Notificacion',body,mFoot(id?"saveNotif('"+id+"')":'saveNotif()',id?'Actualizar':'Guardar'));
-  setTimeout(function(){nfFreqChange();renderDestList();},100);
+  setTimeout(function(){nfFreqChange();nfTipoChange();renderDestList();},100);
 }
 function horaToAMPM(horaStr){
   var parts=(horaStr||'08:00').split(':');var hh=parseInt(parts[0])||8;var mm=parts[1]||'00';
@@ -4934,6 +4938,10 @@ function addGrupoDest(){
 function nfFreqChange(){
   var f=g('nfFreq');document.getElementById('nfDiaS').style.display=f==='semanal'?'block':'none';
   document.getElementById('nfDiaM').style.display=f==='mensual'?'block':'none';
+}
+function nfTipoChange(){
+  var t=g('nfTipo');var ev=document.getElementById('nfFieldsEvento');var msg=document.getElementById('nfFieldsMensaje');
+  if(t==='recordatorio'){if(ev)ev.style.display='block';}else{if(ev)ev.style.display='none';}
 }
 function renderDestList(){
   var el=document.getElementById('nfDestList');if(!el)return;
@@ -4977,15 +4985,18 @@ function addWALink(){
   toast('Link de grupo agregado','ok');
 }
 function saveNotif(id){
-  var t=g('nfTitulo'),m=g('nfMensaje'),f=g('nfFreq');
+  var t=g('nfTitulo'),m=g('nfMensaje'),f=g('nfFreq'),tp=g('nfTipo')||'general';
+  var ev=g('nfEvento')||'',lg=g('nfLugar')||'',he=g('nfHoraEvento')||'';
+  var ie=g('nfInfoExtra')||'';
   var selH=document.getElementById('nfHora');var cusH=document.getElementById('nfHoraCustom');
   var h=(cusH&&cusH.style.display!=='none')?cusH.value:(selH?selH.value:'08:00');
   var a=g('nfActivo')==='1';
   var ds=parseInt(g('nfDiaSemana')),dm=parseInt(g('nfDiaMes'));
   if(isNaN(ds)||ds==='')ds=null;if(isNaN(dm))dm=null;
-  if(!m){toast('Mensaje requerido','wa');return;}
+  var okMsg=tp==='recordatorio'?(ev||m):m;
+  if(!okMsg){toast('Completa el mensaje o evento','wa');return;}
   loading(true);
-  call('saveNotificacion',{id:id,titulo:t,mensaje:m,frecuencia:f,dia_semana:ds,dia_mes:dm,hora_envio:h,activo:a,destinatarios:_notifDest},function(_,res){
+  call('saveNotificacion',{id:id,titulo:t,mensaje:m,tipo:tp,evento:ev,lugar:lg,hora_evento:he,info_extra:ie,frecuencia:f,dia_semana:ds,dia_mes:dm,hora_envio:h,activo:a,destinatarios:_notifDest},function(_,res){
     loading(false);if(res&&res.ok){toast('Notificacion guardada','ok');closeModal();loadNotifs();}else toast('Error: '+(res&&res.msg||''),'er');
   });
 }

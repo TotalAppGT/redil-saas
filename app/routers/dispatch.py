@@ -32,11 +32,41 @@ def _formatear_whatsapp(msg, pdf_url=""):
     from datetime import datetime
     fecha = datetime.now().strftime("%d/%m/%Y")
     msg = str(msg or "").strip()
-    sep = "  "  # doble espacio = separador visual
+    sep = "  "
     hay_pdf = bool(pdf_url and pdf_url.strip())
     if hay_pdf:
         return f"\U0001f4ca *REDIL Restauracion*{sep}\U0001f4c4 *Reporte:*{sep}{msg}{sep}\U0001f4c5 {fecha}"
     return f"\U0001f514 *REDIL Restauracion*{sep}{msg}{sep}\U0001f4c5 {fecha}"
+
+def _construir_mensaje_notificacion(tipo, titulo, mensaje, evento, lugar, hora_evento, info_extra):
+    """Construye mensaje estructurado segun tipo de notificacion."""
+    sep = "  "
+    if tipo == "recordatorio":
+        partes = [f"\U0001f514 *REDIL Restauracion*", f"\U0001f4e2 *Recordatorio:* {titulo or evento or 'Evento'}"]
+        if evento: partes.append(f"\U0001f4c5 {evento}")
+        if hora_evento: partes.append(f"\U0001f550 {hora_evento}")
+        if lugar: partes.append(f"\U0001f3db {lugar}")
+        if mensaje: partes.append(f"\U0001f4cb {mensaje}")
+        if info_extra: partes.append(f"\U00002139 {info_extra}")
+    elif tipo == "reporte":
+        partes = [f"\U0001f4ca *REDIL Restauracion*", f"\U0001f4c4 *Reporte:* {titulo or 'Informe'}"]
+        if mensaje: partes.append(f"\U0001f4ca {mensaje}")
+        if info_extra: partes.append(f"\U0001f4c8 {info_extra}")
+    elif tipo == "alerta":
+        partes = [f"\U000026a0 *REDIL Restauracion*", f"\U0001f6a8 *Alerta:* {titulo or mensaje}"]
+        if mensaje and titulo: partes.append(f"\U0001f4cb {mensaje}")
+        if info_extra: partes.append(f"\U0001f4de {info_extra}")
+    else:
+        partes = [f"\U0001f514 *REDIL Restauracion*"]
+        if titulo: partes.append(f"\U0001f4e2 {titulo}")
+        if mensaje: partes.append(f"\U0001f4cb {mensaje}")
+        if evento: partes.append(f"\U0001f4c5 {evento}")
+        if hora_evento: partes.append(f"\U0001f550 {hora_evento}")
+        if lugar: partes.append(f"\U0001f3db {lugar}")
+        if info_extra: partes.append(f"\U00002139 {info_extra}")
+    from datetime import datetime
+    partes.append(f"\U0001f4c5 {datetime.now().strftime('%d/%m/%Y')}")
+    return sep.join(partes)
 
 ALL_MENU_IDS = [
     'dashboard','reportes','reporteDigital','formulario','generador',
@@ -1204,6 +1234,11 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             nid = payload.get("id")
             titulo = payload.get("titulo", "")
             mensaje = payload.get("mensaje", "")
+            tipo = payload.get("tipo", "general")
+            evento = payload.get("evento", "")
+            lugar = payload.get("lugar", "")
+            hora_evento = payload.get("hora_evento", "")
+            info_extra = payload.get("info_extra", "")
             frecuencia = payload.get("frecuencia", "una_vez")
             dia_s = payload.get("dia_semana")
             dia_m = payload.get("dia_mes")
@@ -1213,23 +1248,25 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             creador = payload.get("creado_por", user.nombre if user else "")
             if isinstance(dests, list):
                 dests = json.dumps(dests, ensure_ascii=False)
-            if not mensaje:
-                return {"ok": False, "msg": "El mensaje es requerido"}
+            if not mensaje and not evento:
+                return {"ok": False, "msg": "Mensaje o evento requerido"}
+            mensaje_final = _construir_mensaje_notificacion(tipo, titulo, mensaje, evento, lugar, hora_evento, info_extra)
             if nid:
                 n = db.query(Notificacion).filter(Notificacion.id == nid).first()
                 if not n:
                     return {"ok": False, "msg": "Notificacion no encontrada"}
-                n.titulo = titulo
-                n.mensaje = mensaje
+                n.titulo = titulo; n.mensaje = mensaje_final
+                n.tipo = tipo; n.evento = evento; n.lugar = lugar
+                n.hora_evento = hora_evento; n.info_extra = info_extra
                 n.frecuencia = frecuencia
                 n.dia_semana = int(dia_s) if dia_s is not None else None
                 n.dia_mes = int(dia_m) if dia_m is not None else None
-                n.hora_envio = hora
-                n.activo = activo
-                n.destinatarios = dests
+                n.hora_envio = hora; n.activo = activo; n.destinatarios = dests
             else:
                 n = Notificacion(
-                    titulo=titulo, mensaje=mensaje, frecuencia=frecuencia,
+                    titulo=titulo, mensaje=mensaje_final, tipo=tipo,
+                    evento=evento, lugar=lugar, hora_evento=hora_evento, info_extra=info_extra,
+                    frecuencia=frecuencia,
                     dia_semana=int(dia_s) if dia_s is not None else None,
                     dia_mes=int(dia_m) if dia_m is not None else None,
                     hora_envio=hora, activo=activo, destinatarios=dests,

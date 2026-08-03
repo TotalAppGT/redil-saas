@@ -53,6 +53,11 @@ try:
                 id SERIAL PRIMARY KEY,
                 titulo VARCHAR(200) DEFAULT '',
                 mensaje TEXT NOT NULL,
+                tipo VARCHAR(30) DEFAULT 'general',
+                evento VARCHAR(200) DEFAULT '',
+                lugar VARCHAR(200) DEFAULT '',
+                hora_evento VARCHAR(10) DEFAULT '',
+                info_extra VARCHAR(300) DEFAULT '',
                 frecuencia VARCHAR(20) DEFAULT 'una_vez',
                 dia_semana INTEGER,
                 dia_mes INTEGER,
@@ -264,9 +269,13 @@ def _procesar_notificaciones_pendientes():
                         continue
                     # Extraer links de grupos WhatsApp
                     wa_links = [d.get("walink", "") for d in dests if d.get("walink")]
-                    msg_wa = f"\U0001f4e2 *REDIL Restauracion*  {n.titulo + ' - ' if n.titulo else ''}{n.mensaje}  \U0001f4c5 {ahora.strftime('%d/%m/%Y')}"
+                    from app.routers.dispatch import _construir_mensaje_notificacion
+                    msg_wa = _construir_mensaje_notificacion(
+                        n.tipo or "general", n.titulo, n.mensaje,
+                        n.evento, n.lugar, n.hora_evento, n.info_extra
+                    )
                     if wa_links:
-                        msg_wa += " | " + " | ".join(wa_links[:3])
+                        msg_wa += "  " + "  ".join(wa_links[:2])
                     for d in dests:
                         num = str(d.get("numero", "")).replace("+", "").replace(" ", "").replace("-", "")
                         if not num or len(num) < 8:
