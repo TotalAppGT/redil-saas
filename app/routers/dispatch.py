@@ -1253,6 +1253,7 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
         if action == "enviarNotificacionPrueba":
             from app.whatsapp_utils import send_whatsapp_template
             from datetime import datetime as dt
+            from app.models import NotificacionLog
             numero = str(payload.get("numero", "")).replace("+", "").replace(" ", "")
             mensaje = payload.get("mensaje", "")
             titulo = payload.get("titulo", "")
@@ -1261,6 +1262,13 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             fecha = dt.now().strftime("%d/%m/%Y")
             msg_wa = f"\U0001f4e2 *REDIL Restauracion* | {titulo + ' - ' if titulo else ''}{mensaje} | \U0001f4c5 {fecha}"
             resp = send_whatsapp_template(numero, params=[msg_wa])
+            db.add(NotificacionLog(
+                notificacion_id=0, titulo=titulo, destino=numero,
+                wamid=resp.get("wamid", ""),
+                estado="enviado" if resp.get("ok") else "fallo",
+                error_msg=str(resp.get("msg", ""))[:300]
+            ))
+            db.commit()
             return resp
 
         if action == "getNotificacionesLog":
