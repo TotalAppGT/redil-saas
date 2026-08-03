@@ -82,6 +82,19 @@ try:
                 fecha TIMESTAMP DEFAULT NOW()
             )
         """))
+        # Migrar columnas nuevas de notificaciones
+        try:
+            cols_notif = [c["name"] for c in inspector.get_columns("notificaciones")]
+            for col, defn in [("tipo","VARCHAR(30) DEFAULT 'general'"),
+                              ("evento","VARCHAR(200) DEFAULT ''"),
+                              ("lugar","VARCHAR(200) DEFAULT ''"),
+                              ("hora_evento","VARCHAR(10) DEFAULT ''"),
+                              ("info_extra","VARCHAR(300) DEFAULT ''")]:
+                if col not in cols_notif:
+                    conn.execute(text(f"ALTER TABLE notificaciones ADD COLUMN {col} {defn}"))
+            conn.commit()
+        except Exception:
+            pass
         conn.commit()
 except Exception as e:
     print(f"⚠️ Migración: {e}")
