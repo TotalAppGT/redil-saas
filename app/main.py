@@ -48,6 +48,35 @@ try:
                 timestamp TIMESTAMP DEFAULT NOW()
             )
         """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS notificaciones (
+                id SERIAL PRIMARY KEY,
+                titulo VARCHAR(200) DEFAULT '',
+                mensaje TEXT NOT NULL,
+                frecuencia VARCHAR(20) DEFAULT 'una_vez',
+                dia_semana INTEGER,
+                dia_mes INTEGER,
+                hora_envio VARCHAR(10) DEFAULT '08:00',
+                activo BOOLEAN DEFAULT TRUE,
+                destinatarios TEXT DEFAULT '[]',
+                ultimo_envio TIMESTAMP,
+                proximo_envio TIMESTAMP,
+                creado_por VARCHAR(200) DEFAULT '',
+                timestamp TIMESTAMP DEFAULT NOW()
+            )
+        """))
+        conn.execute(text("""
+            CREATE TABLE IF NOT EXISTS notificaciones_log (
+                id SERIAL PRIMARY KEY,
+                notificacion_id INTEGER,
+                titulo VARCHAR(200) DEFAULT '',
+                destino VARCHAR(50),
+                wamid VARCHAR(200),
+                estado VARCHAR(50),
+                error_msg VARCHAR(300) DEFAULT '',
+                fecha TIMESTAMP DEFAULT NOW()
+            )
+        """))
         conn.commit()
 except Exception as e:
     print(f"⚠️ Migración: {e}")
@@ -193,6 +222,77 @@ def descargar_pdf(no_serie: str):
 async def form_redirect():
     with open("static/formulario_digital.html", "r", encoding="utf-8") as f:
         return f.read()
+
+# ── SCHEDULER DE NOTIFICACIONES ──
+import threading, time, json as json_mod
+from datetime import datetime, timedelta
+
+def _procesar_notificaciones_pendientes():
+    while True:
+        time.sleep(60)
+        try:
+            from app.database import SessionLocal
+            from app.models import Notificacion, NotificacionLog
+            from app.whatsapp_utils import send_whatsapp_template
+            db = SessionLocal()
+            try:
+                ahora = datetime.utcnow()
+                notifs = db.query(Notificacion).filter(Notificacion.activo == True).all()
+                for n in notifs:
+                    if n.ultimo_envio and n.frecuencia == "una_vez":
+                        continue
+                    hora_e = str(n.hora_envio or "08:00")
+                    hora_actual = ahora.strftime("%H:%M")
+                    if hora_actual != hora_e:
+                        continue
+                    debe_enviar = False
+                    if n.frecuencia == "diaria":
+                        debe_enviar = not n.ultimo_envio or n.ultimo_envio.date() < ahora.date()
+                    elif n.frecuencia == "semanal":
+                        if n.dia_semana is not None and ahora.weekday() == n.dia_semana:
+                            debe_enviar = not n.ultimo_envio or n.ultimo_envio.date() < ahora.date()
+                    elif n.frecuencia == "mensual":
+                        if n.dia_mes is not None and ahora.day == n.dia_mes:
+                            debe_enviar = not n.ultimo_envio or n.ultimo_envio.date() < ahora.date()
+                    if not debe_enviar:
+                        continue
+                    try:
+                        dests = json_mod.loads(n.destinatarios or "[]")
+                    except:
+                        dests = []
+                    if not dests:
+                        continue
+                    msg_wa = f"\U0001f4e2 *REDIL Restauracion* | {n.titulo + ' - ' if n.titulo else ''}{n.mensaje} | \U0001f4c5 {ahora.strftime('%d/%m/%Y')}"
+                    for d in dests:
+                        num = str(d.get("numero", "")).replace("+", "").replace(" ", "").replace("-", "")
+                        if not num or len(num) < 8:
+                            continue
+                        try:
+                            resp = send_whatsapp_template(num, params=[msg_wa])
+                            log_estado = "enviado" if resp.get("ok") else "fallo"
+                            log_wamid = resp.get("wamid", "")
+                            log_error = str(resp.get("msg", ""))[:300]
+                        except Exception as e:
+                            log_estado = "error"
+                            log_wamid = ""
+                            log_error = str(e)[:300]
+                        db.add(NotificacionLog(
+                            notificacion_id=n.id,
+                            titulo=n.titulo,
+                            destino=num,
+                            wamid=log_wamid,
+                            estado=log_estado,
+                            error_msg=log_error,
+                        ))
+                    n.ultimo_envio = ahora
+                    db.commit()
+            finally:
+                db.close()
+        except Exception as e:
+            print(f"ERROR scheduler notificaciones: {e}")
+
+_scheduler_thread = threading.Thread(target=_procesar_notificaciones_pendientes, daemon=True)
+_scheduler_thread.start()
 
 # Servir frontend
 app.mount("/", StaticFiles(directory="static", html=True), name="static")

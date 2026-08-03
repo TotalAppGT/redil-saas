@@ -290,3 +290,30 @@ class MensajeRecibido(Base):
     raw_json = Column(Text)
     procesado = Column(Boolean, default=False)
     fecha = Column(DateTime, default=datetime.datetime.utcnow)
+
+class Notificacion(Base):
+    __tablename__ = "notificaciones"
+    id = Column(Integer, primary_key=True, index=True)
+    titulo = Column(String(200), default="")
+    mensaje = Column(Text, nullable=False)
+    frecuencia = Column(String(20), default="una_vez")
+    dia_semana = Column(Integer, nullable=True)
+    dia_mes = Column(Integer, nullable=True)
+    hora_envio = Column(String(10), default="08:00")
+    activo = Column(Boolean, default=True)
+    destinatarios = Column(Text, default="[]")
+    ultimo_envio = Column(DateTime, nullable=True)
+    proximo_envio = Column(DateTime, nullable=True)
+    creado_por = Column(String(200), default="")
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+
+class NotificacionLog(Base):
+    __tablename__ = "notificaciones_log"
+    id = Column(Integer, primary_key=True, index=True)
+    notificacion_id = Column(Integer, index=True)
+    titulo = Column(String(200), default="")
+    destino = Column(String(50))
+    wamid = Column(String(200))
+    estado = Column(String(50))
+    error_msg = Column(String(300), default="")
+    fecha = Column(DateTime, default=datetime.datetime.utcnow)

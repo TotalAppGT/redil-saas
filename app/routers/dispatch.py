@@ -42,11 +42,11 @@ ALL_MENU_IDS = [
     'hermanos','cargaMasiva','seguimientos','privilegios',
     'diezmos','gastos','cuadre','inventario','insumos','bautizos',
     'supervisores','pastores','ayudapastor',
-    'envio','contactos','usuarios','configuracion','bitacora'
+    'envio','notificaciones','contactos','usuarios','configuracion','bitacora'
 ]
 
 ROL_DEFAULT_MENU = {
-    'Admin':     ['dashboard','reportes','reporteDigital','formulario','generador','hermanos','cargaMasiva','seguimientos','privilegios','diezmos','gastos','cuadre','inventario','insumos','bautizos','envio','contactos','usuarios','supervisores','pastores','ayudapastor','configuracion','bitacora'],
+    'Admin':     ['dashboard','reportes','reporteDigital','formulario','generador','hermanos','cargaMasiva','seguimientos','privilegios','diezmos','gastos','cuadre','inventario','insumos','bautizos','envio','notificaciones','contactos','usuarios','supervisores','pastores','ayudapastor','configuracion','bitacora'],
     'Líder':     ['dashboard','reportes','reporteDigital','formulario','seguimientos'],
     'Secretario':['dashboard','reportes','reporteDigital','generador','seguimientos','envio','contactos'],
     'Tesorero':  ['dashboard','reportes','diezmos','gastos','generador','envio'],
@@ -1182,6 +1182,109 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
         if action == "getPlanes":
             from app.recurrente_utils import listar_planes
             return listar_planes()
+
+        # ── NOTIFICACIONES ──
+        if action == "getNotificaciones":
+            from app.models import Notificacion
+            rows = db.query(Notificacion).order_by(Notificacion.timestamp.desc()).all()
+            return {"ok": True, "data": [
+                {"id": n.id, "titulo": n.titulo, "mensaje": n.mensaje,
+                 "frecuencia": n.frecuencia, "dia_semana": n.dia_semana,
+                 "dia_mes": n.dia_mes, "hora_envio": n.hora_envio,
+                 "activo": n.activo, "destinatarios": n.destinatarios,
+                 "ultimo_envio": str(n.ultimo_envio) if n.ultimo_envio else "",
+                 "proximo_envio": str(n.proximo_envio) if n.proximo_envio else "",
+                 "creado_por": n.creado_por, "timestamp": str(n.timestamp)}
+                for n in rows
+            ]}
+
+        if action == "saveNotificacion":
+            from app.models import Notificacion
+            nid = payload.get("id")
+            titulo = payload.get("titulo", "")
+            mensaje = payload.get("mensaje", "")
+            frecuencia = payload.get("frecuencia", "una_vez")
+            dia_s = payload.get("dia_semana")
+            dia_m = payload.get("dia_mes")
+            hora = payload.get("hora_envio", "08:00")
+            activo = payload.get("activo", True)
+            dests = payload.get("destinatarios", [])
+            creador = payload.get("creado_por", user.nombre if user else "")
+            if isinstance(dests, list):
+                dests = json.dumps(dests, ensure_ascii=False)
+            if not mensaje:
+                return {"ok": False, "msg": "El mensaje es requerido"}
+            if nid:
+                n = db.query(Notificacion).filter(Notificacion.id == nid).first()
+                if not n:
+                    return {"ok": False, "msg": "Notificacion no encontrada"}
+                n.titulo = titulo
+                n.mensaje = mensaje
+                n.frecuencia = frecuencia
+                n.dia_semana = int(dia_s) if dia_s is not None else None
+                n.dia_mes = int(dia_m) if dia_m is not None else None
+                n.hora_envio = hora
+                n.activo = activo
+                n.destinatarios = dests
+            else:
+                n = Notificacion(
+                    titulo=titulo, mensaje=mensaje, frecuencia=frecuencia,
+                    dia_semana=int(dia_s) if dia_s is not None else None,
+                    dia_mes=int(dia_m) if dia_m is not None else None,
+                    hora_envio=hora, activo=activo, destinatarios=dests,
+                    creado_por=creador
+                )
+                db.add(n)
+            db.commit()
+            return {"ok": True, "msg": "Notificacion guardada"}
+
+        if action == "deleteNotificacion":
+            from app.models import Notificacion
+            nid = payload.get("id")
+            if not nid:
+                return {"ok": False, "msg": "ID requerido"}
+            n = db.query(Notificacion).filter(Notificacion.id == nid).first()
+            if not n:
+                return {"ok": False, "msg": "No encontrada"}
+            db.delete(n)
+            db.commit()
+            return {"ok": True}
+
+        if action == "enviarNotificacionPrueba":
+            from app.whatsapp_utils import send_whatsapp_template
+            from datetime import datetime as dt
+            numero = str(payload.get("numero", "")).replace("+", "").replace(" ", "")
+            mensaje = payload.get("mensaje", "")
+            titulo = payload.get("titulo", "")
+            if not numero or not mensaje:
+                return {"ok": False, "msg": "Numero y mensaje requeridos"}
+            fecha = dt.now().strftime("%d/%m/%Y")
+            msg_wa = f"\U0001f4e2 *REDIL Restauracion* | {titulo + ' - ' if titulo else ''}{mensaje} | \U0001f4c5 {fecha}"
+            resp = send_whatsapp_template(numero, params=[msg_wa])
+            return resp
+
+        if action == "getNotificacionesLog":
+            from app.models import NotificacionLog
+            rows = db.query(NotificacionLog).order_by(NotificacionLog.fecha.desc()).limit(200).all()
+            return {"ok": True, "data": [
+                {"id": r.id, "notificacion_id": r.notificacion_id,
+                 "titulo": r.titulo, "destino": r.destino,
+                 "wamid": r.wamid, "estado": r.estado,
+                 "error_msg": r.error_msg, "fecha": str(r.fecha)}
+                for r in rows
+            ]}
+
+        if action == "getContactosWhatsapp":
+            contactos = []
+            for s in db.query(Supervisor).filter(Supervisor.telefono.isnot(None), Supervisor.telefono != "").all():
+                contactos.append({"nombre": s.nombre_sup or "", "numero": str(s.telefono).replace("+", "").replace(" ", ""), "tipo": "Supervisor"})
+            for p in db.query(Pastore).filter(Pastore.telefono.isnot(None), Pastore.telefono != "").all():
+                contactos.append({"nombre": p.nombre_pastor or "", "numero": str(p.telefono).replace("+", "").replace(" ", ""), "tipo": "Pastor"})
+            for a in db.query(AyudaPastor).filter(AyudaPastor.telefono.isnot(None), AyudaPastor.telefono != "").all():
+                contactos.append({"nombre": a.nombre_ayuda or "", "numero": str(a.telefono).replace("+", "").replace(" ", ""), "tipo": "Ayuda Pastor"})
+            for c in db.query(Contacto).filter(Contacto.telefono.isnot(None), Contacto.telefono != "").all():
+                contactos.append({"nombre": c.nombre or "", "numero": str(c.telefono).replace("+", "").replace(" ", ""), "tipo": "Contacto"})
+            return {"ok": True, "data": contactos}
 
         # ── ESTADOS DE ENTREGA WHATSAPP (webhook) ──
         if action == "getWhatsappEstados":

@@ -353,6 +353,7 @@ var ALL_MENU=[
   {id:'inventario',label:'Inventario',icon:'fa-boxes',section:'RECURSOS'},
   {id:'insumos',label:'Insumos',icon:'fa-spray-can',section:'RECURSOS'},
   {id:'envio',label:'Centro de Envios',icon:'fa-paper-plane',section:'COMUNICACIONES'},
+  {id:'notificaciones',label:'Notificaciones Auto',icon:'fa-bell',section:'COMUNICACIONES'},
   {id:'contactos',label:'Tabla de Contactos',icon:'fa-address-book',section:'COMUNICACIONES'},
   {id:'bautizos',label:'Bautizos en Agua',icon:'fa-water',section:'GESTION'},
   {id:'usuarios',label:'Usuarios',icon:'fa-user-cog',section:'ADMIN'},
@@ -4753,7 +4754,127 @@ function delBautizo(id){
   customConfirm('¿Eliminar este bautizo?',function(ok){if(!ok)return;loading(true);call('deleteBautizo',{id:id},function(_,res){loading(false);if(res&&res.ok){toast('Eliminado','ok');loadBautizos();}else toast('Error','er');});},{icon:'fa-trash-alt'});
 }
 
-var RENDERS={dashboard:renderDashboard,reportes:renderReportes,reporteDigital:renderReporteDigital,formulario:renderFormulario,generador:renderGenerador,hermanos:renderHermanos,cargaMasiva:renderCargaMasiva,supervisores:renderSupervisores,pastores:renderPastores,ayudapastor:renderAyudaPastor,seguimientos:renderSeguimientos,privilegios:renderPrivilegios,cronograma:renderCronograma,bautizos:renderBautizos,diezmos:renderDiezmos,gastos:renderGastos,inventario:renderInventario,insumos:renderInsumos,envio:renderEnvio,contactos:renderContactos,cuadre:renderCuadre,usuarios:renderUsuarios,bitacora:renderBitacora,configuracion:renderConfiguracion};
+// ══════════════════════════════════════════════════════════
+// NOTIFICACIONES AUTOMATICAS
+// ══════════════════════════════════════════════════════════
+var _notifsData=[],_notifDest=[];
+function renderNotificaciones(el){
+  el.innerHTML='<div class="mod-hdr"><h2><i class="fas fa-bell"></i> Notificaciones Automaticas</h2><div class="mod-acts"><button class="btn btn-ok btn-sm" onclick="newNotif()"><i class="fas fa-plus"></i> Nueva</button><button class="btn btn-in btn-sm" onclick="loadNotifs()"><i class="fas fa-sync-alt"></i> Refrescar</button></div></div>'
+    +'<div class="mod-body"><div class="mod-grid" style="grid-template-columns:1fr 320px;gap:16px;align-items:start">'
+    +'<div><table class="tb"><thead><tr><th>Titulo</th><th>Freq</th><th>Hora</th><th>Activo</th><th style="width:80px"></th></tr></thead><tbody id="notifTb"><tr><td colspan="5"><div class="empty-r"><i class="fas fa-bell"></i><p>Cargando...</p></div></td></tr></tbody></table>'
+    +'<div style="margin-top:12px"><h3 style="margin-bottom:8px;color:var(--tx2)"><i class="fas fa-history"></i> Historial de Envios</h3><table class="tb"><thead><tr><th>Notificacion</th><th>Destino</th><th>Estado</th><th>Fecha</th></tr></thead><tbody id="notifLogTb"><tr><td colspan="4"><div class="empty-r"><p>Cargando...</p></div></td></tr></tbody></table></div></div>'
+    +'<div class="card" style="padding:16px"><h3 style="margin-bottom:12px"><i class="fas fa-address-book"></i> Destinatarios</h3><div id="notifDests" style="max-height:400px;overflow-y:auto"></div><div style="margin-top:10px;display:flex;gap:8px;"><button class="btn btn-in btn-sm" onclick="syncContactosWhatsapp()"><i class="fas fa-sync-alt"></i> Sincronizar desde DB</button></div><div style="margin-top:8px"><input class="fc" id="notifTestNum" placeholder="+502 5830-9505" style="width:100%"><button class="btn btn-pr btn-sm" onclick="testNotif()" style="margin-top:6px;width:100%"><i class="fas fa-paper-plane"></i> Probar numero</button></div></div>'
+    +'</div></div>';
+  loadNotifs();
+  loadNotifLog();
+}
+function loadNotifs(){
+  call('getNotificaciones',{},function(_,res){
+    _notifsData=(res&&res.data)||[];
+    var tb=document.getElementById('notifTb');if(!tb)return;
+    if(!_notifsData.length){tb.innerHTML='<tr><td colspan="5"><div class="empty-r"><i class="fas fa-bell"></i><p>Sin notificaciones</p><button class="btn btn-ok btn-sm" onclick="newNotif()">Crear primera</button></div></td></tr>';return;}
+    var fq={'una_vez':'Una vez','diaria':'Diaria','semanal':'Semanal','mensual':'Mensual'};
+    var ds=['Lun','Mar','Mie','Jue','Vie','Sab','Dom'];
+    tb.innerHTML=_notifsData.map(function(n){
+      var freqTxt=fq[n.frecuencia]||n.frecuencia;
+      if(n.frecuencia==='semanal'&&n.dia_semana!=null)freqTxt+=' ('+(ds[n.dia_semana]||'?')+')';
+      if(n.frecuencia==='mensual'&&n.dia_mes)freqTxt+=' (dia '+n.dia_mes+')';
+      return '<tr><td><b>'+esc(n.titulo||'(sin titulo)')+'</b><br><span style="font-size:11px;color:var(--tx2)">'+esc(n.mensaje||'').substring(0,60)+'</span></td>'
+        +'<td>'+freqTxt+'</td><td>'+esc(n.hora_envio)+'</td>'
+        +'<td><span class="bdg '+(n.activo?'bg':'bgr')+'">'+(n.activo?'Activo':'Inactivo')+'</span></td>'
+        +'<td><div class="ab"><button class="ab-btn ab-ed" onclick="editNotif('+n.id+')"><i class="fas fa-edit"></i></button><button class="ab-btn ab-del" onclick="delNotif('+n.id+')"><i class="fas fa-trash"></i></button></div></td></tr>';
+    }).join('');
+  });
+}
+function loadNotifLog(){
+  call('getNotificacionesLog',{},function(_,res){
+    var data=(res&&res.data)||[];
+    var tb=document.getElementById('notifLogTb');if(!tb)return;
+    if(!data.length){tb.innerHTML='<tr><td colspan="4"><div class="empty-r"><p>Sin envios registrados</p></div></td></tr>';return;}
+    tb.innerHTML=data.map(function(r){
+      return '<tr><td>'+esc(r.titulo||'')+'</td><td>'+esc(r.destino)+'</td>'
+        +'<td><span class="bdg '+(r.estado==='enviado'?'bg':'bo')+'">'+esc(r.estado)+'</span></td>'
+        +'<td style="font-size:11px">'+esc(r.fecha||'')+'</td></tr>';
+    }).join('');
+  });
+}
+function newNotif(){editNotif(null);}
+function editNotif(id){
+  var n=id?_notifsData.find(function(x){return x.id===id;}):{};
+  var dests=[];
+  try{dests=JSON.parse((n.destinatarios||'[]'));}catch(e){}
+  _notifDest=dests;
+  var fqs={'una_vez':'Una vez','diaria':'Diaria','semanal':'Semanal','mensual':'Mensual'};
+  var ds='<option value="">--</option>'+['Lunes','Martes','Miercoles','Jueves','Viernes','Sabado','Domingo'].map(function(d,i){return '<option value="'+i+'"'+(n.dia_semana===i?' selected':'')+'>'+d+'</option>';}).join('');
+  var dm='<option value="">--</option>'+Array.from({length:31},function(_,i){var d=i+1;return '<option'+(n.dia_mes===d?' selected':'')+'>'+d+'</option>';}).join('');
+  var body='<div class="fg2">'
+    +'<div class="fgg full"><label>Titulo</label><input class="fc" id="nfTitulo" value="'+esc(n.titulo||'')+'" placeholder="Ej: Recordatorio Reunion de Lideres"></div>'
+    +'<div class="fgg full"><label>Mensaje <span class="req">*</span></label><textarea class="fc" id="nfMensaje" rows="3" placeholder="Escribe el mensaje de la notificacion...">'+esc(n.mensaje||'')+'</textarea></div>'
+    +'<div class="fgg"><label>Frecuencia</label><select class="fc" id="nfFreq" onchange="nfFreqChange()">'+Object.keys(fqs).map(function(k){return '<option value="'+k+'"'+(n.frecuencia===k?' selected':'')+'>'+fqs[k]+'</option>';}).join('')+'</select></div>'
+    +'<div class="fgg"><label>Hora de envio</label><input class="fc" type="time" id="nfHora" value="'+(n.hora_envio||'08:00')+'"></div>'
+    +'<div class="fgg" id="nfDiaS" style="display:'+(n.frecuencia==='semanal'?'block':'none')+'"><label>Dia de la semana</label><select class="fc" id="nfDiaSemana">'+ds+'</select></div>'
+    +'<div class="fgg" id="nfDiaM" style="display:'+(n.frecuencia==='mensual'?'block':'none')+'"><label>Dia del mes</label><select class="fc" id="nfDiaMes">'+dm+'</select></div>'
+    +'<div class="fgg"><label>Estado</label><select class="fc" id="nfActivo"><option value="1"'+(n.activo!==false?' selected':'')+'>Activo</option><option value="0"'+(n.activo===false?' selected':'')+'>Inactivo</option></select></div>'
+    +'</div>'
+    +'<div style="margin-top:12px"><label style="font-weight:600;display:block;margin-bottom:8px"><i class="fas fa-users"></i> Destinatarios ('+dests.length+')</label>'
+    +'<div style="max-height:150px;overflow-y:auto;margin-bottom:8px">'
+    +(dests.length?dests.map(function(d,i){return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:#f8f9fe;border-radius:6px;margin:4px 0;font-size:13px"><span><b>'+esc(d.nombre||'')+'</b> '+esc(d.numero||'')+'</span><button class="ab-btn ab-del" style="padding:2px 6px;font-size:11px" onclick="removeDest('+i+')"><i class="fas fa-times"></i></button></div>';}).join(''):'<div style="color:var(--tx2);font-size:12px;padding:8px">Sin destinatarios. Agrega desde la DB o manualmente.</div>')
+    +'</div>'
+    +'<div style="display:flex;gap:8px"><input class="fc" id="nfNum" placeholder="+502 XXXX-XXXX" style="flex:1"><input class="fc" id="nfNom" placeholder="Nombre" style="flex:1"><button class="btn btn-in btn-sm" onclick="addDest()"><i class="fas fa-plus"></i> Agregar</button></div></div>';
+  openModal(id?'Editar Notificacion':'Nueva Notificacion',body,mFoot(id?"saveNotif('"+id+"')":'saveNotif()',id?'Actualizar':'Guardar'));
+  setTimeout(function(){nfFreqChange();},100);
+}
+function nfFreqChange(){
+  var f=g('nfFreq');document.getElementById('nfDiaS').style.display=f==='semanal'?'block':'none';
+  document.getElementById('nfDiaM').style.display=f==='mensual'?'block':'none';
+}
+function addDest(){
+  var num=(g('nfNum')||'').replace(/[^0-9]/g,'');var nom=g('nfNom')||'';
+  if(!num||num.length<8){toast('Numero valido requerido','wa');return;}
+  _notifDest.push({numero:num,nombre:nom});document.getElementById('nfNum').value='';document.getElementById('nfNom').value='';
+  editNotif(null);if(_notifsData.length){var ci=document.getElementById('nfFreq');if(ci)editNotif(parseInt(ci.getAttribute('data-id'))||null);}
+}
+function removeDest(i){_notifDest.splice(i,1);editNotif(null);}
+function saveNotif(id){
+  var t=g('nfTitulo'),m=g('nfMensaje'),f=g('nfFreq'),h=g('nfHora'),a=g('nfActivo')==='1';
+  var ds=parseInt(g('nfDiaSemana')),dm=parseInt(g('nfDiaMes'));
+  if(isNaN(ds)||ds==='')ds=null;if(isNaN(dm))dm=null;
+  if(!m){toast('Mensaje requerido','wa');return;}
+  loading(true);
+  call('saveNotificacion',{id:id,titulo:t,mensaje:m,frecuencia:f,dia_semana:ds,dia_mes:dm,hora_envio:h,activo:a,destinatarios:_notifDest},function(_,res){
+    loading(false);if(res&&res.ok){toast('Notificacion guardada','ok');closeModal();loadNotifs();}else toast('Error: '+(res&&res.msg||''),'er');
+  });
+}
+function delNotif(id){
+  customConfirm('Eliminar esta notificacion?',function(ok){if(!ok)return;loading(true);call('deleteNotificacion',{id:id},function(_,res){loading(false);if(res&&res.ok){toast('Eliminada','ok');loadNotifs();}else toast('Error','er');});},{icon:'fa-trash-alt',danger:true});
+}
+function syncContactosWhatsapp(){
+  loading(true);
+  call('getContactosWhatsapp',{},function(_,res){
+    loading(false);
+    var data=(res&&res.data)||[];
+    var el=document.getElementById('notifDests');if(!el)return;
+    if(!data.length){el.innerHTML='<div class="empty-r"><p>Sin contactos con WhatsApp</p></div>';return;}
+    _notifDest=data;
+    el.innerHTML=data.map(function(d,i){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:#f8f9fe;border-radius:6px;margin:4px 0;font-size:13px;cursor:pointer" onclick="toggleDest('+i+','+(d._sel?'true':'false')+')">'
+        +'<span><b>'+esc(d.nombre||'')+'</b> <span style="color:var(--tx2);font-size:11px">'+esc(d.numero||'')+'</span></span>'
+        +'<span class="bdg bb" style="font-size:10px">'+esc(d.tipo||'')+'</span>'
+        +'</div>';
+    }).join('');
+    toast(data.length+' contactos sincronizados','ok');
+  });
+}
+function testNotif(){
+  var num=(g('notifTestNum')||'').replace(/[^0-9]/g,'');
+  if(!num||num.length<8){toast('Ingresa un numero valido','wa');return;}
+  loading(true);
+  call('enviarNotificacionPrueba',{numero:num,mensaje:'Prueba de conexion REDIL Restauracion - notificaciones funcionando',titulo:'Prueba de Conexion'},function(_,res){
+    loading(false);if(res&&res.ok){toast('Mensaje enviado a '+num,'ok');}else toast('Error: '+(res&&res.msg||''),'er');
+  });
+}
+
+var RENDERS={dashboard:renderDashboard,reportes:renderReportes,reporteDigital:renderReporteDigital,formulario:renderFormulario,generador:renderGenerador,hermanos:renderHermanos,cargaMasiva:renderCargaMasiva,supervisores:renderSupervisores,pastores:renderPastores,ayudapastor:renderAyudaPastor,seguimientos:renderSeguimientos,privilegios:renderPrivilegios,cronograma:renderCronograma,bautizos:renderBautizos,diezmos:renderDiezmos,gastos:renderGastos,inventario:renderInventario,insumos:renderInsumos,envio:renderEnvio,notificaciones:renderNotificaciones,contactos:renderContactos,cuadre:renderCuadre,usuarios:renderUsuarios,bitacora:renderBitacora,configuracion:renderConfiguracion};
 
 // ══════════════════════════════════════════════════════════
 // CUADRE DOMINICAL — Cierre semanal (domingo 12am)
