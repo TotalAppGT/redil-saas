@@ -746,7 +746,7 @@ function renderReportes(el){
     <!-- FILTROS -->
     <div class="fr" style="padding:10px 14px;border-bottom:1px solid var(--brd)">
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;width:100%">
-        <div class="sb2" style="flex:1;min-width:180px"><i class="fas fa-search"></i><input type="text" placeholder="Buscar líder, código, anfitrión..." oninput="_qRep=this.value;renderRepTable(_rep)"></div>
+        <div class="sb2" style="flex:1;min-width:180px;position:relative"><i class="fas fa-search"></i><input type="text" id="repSearch" placeholder="Buscar líder, código, anfitrión..." oninput="buscarRepSugerencias(this.value);_qRep=this.value;renderRepTable(_rep)" autocomplete="off"><div id="repSearchSug" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:2px solid var(--pr2);border-radius:0 0 10px 10px;max-height:200px;overflow-y:auto;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.15)"></div></div>
         <input type="date" class="fdt" id="rD" value="${fom30()}" title="Desde">
         <input type="date" class="fdt" id="rH" value="${today()}" title="Hasta">
       </div>
@@ -1172,6 +1172,26 @@ function limpiarFiltrosRep(){
 }
 
 function actualizarSelectores(){loadRep();}
+function buscarRepSugerencias(q){
+  var sug=document.getElementById('repSearchSug');if(!sug)return;
+  q=q.trim();
+  if(q.length<2){sug.style.display='none';return;}
+  call('buscarLideres',{query:q},function(_,res){
+    var data=(res&&res.data)||[];
+    if(!data.length){sug.style.display='none';return;}
+    sug.innerHTML=data.map(function(h){
+      return '<div style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #eee;font-size:13px" onmousedown="seleccionarRepLider(\''+esc(h['CodigoL']||h['CodigoL']||'')+'\',\''+esc(h['NombreL']||'')+'\')" onmouseenter="this.style.background=\'#f0f4ff\'" onmouseleave="this.style.background=\'#fff\'">'
+        +'<b>'+esc(h['NombreL'])+'</b> <span style="font-family:monospace;font-size:11px;color:var(--pr2)">'+esc(h['CodigoL'])+'</span>'
+        +'<div style="font-size:10px;color:var(--tx3)">D'+esc(h['Distrito'])+' Z'+esc(h['Zona'])+'</div></div>';
+    }).join('');
+    sug.style.display='block';
+  });
+}
+function seleccionarRepLider(cod,nom){
+  document.getElementById('repSearch').value=nom+' ('+cod+')';
+  document.getElementById('repSearchSug').style.display='none';
+  _qRep=nom; loadRep();
+}
 
 function getVisibleRep(){
   let d=_repTab==='pendientes'?_rep.filter(r=>r['Ofrenda Recibida']==='Pendiente'||r['Ofrenda Recibida']===''):_rep;
@@ -4838,7 +4858,7 @@ function editNotif(id){
     +'</div>'
     +'<div style="margin-top:12px"><label id="nfDestLabel" style="font-weight:600;display:block;margin-bottom:8px"><i class="fas fa-users"></i> Destinatarios ('+dests.length+')</label>'
     +'<div id="nfDestList" style="max-height:150px;overflow-y:auto;margin-bottom:8px"></div>'
-    +'<div style="display:flex;gap:8px"><input class="fc" id="nfNum" placeholder="+502 XXXX-XXXX" style="flex:1"><input class="fc" id="nfNom" placeholder="Nombre" style="flex:1"><button class="btn btn-in btn-sm" onclick="addDest()"><i class="fas fa-plus"></i> Agregar</button></div></div>';
+    +'<div style="display:flex;gap:8px"><input class="fc" id="nfNum" placeholder="+502 XXXX-XXXX" style="flex:1"><input class="fc" id="nfNom" placeholder="Nombre" style="flex:1"><button class="btn btn-in btn-sm" onclick="addDest()"><i class="fas fa-plus"></i> Agregar</button><button class="btn btn-ok btn-sm" onclick="guardarContactoDesdeNotif()" title="Guardar numero en Tabla de Contactos para que aparezca en Centro de Envios"><i class="fas fa-save"></i> Guardar en Contactos</button></div></div>';
   openModal(id?'Editar Notificacion':'Nueva Notificacion',body,mFoot(id?"saveNotif('"+id+"')":'saveNotif()',id?'Actualizar':'Guardar'));
   setTimeout(function(){nfFreqChange();renderDestList();},100);
 }
@@ -4910,6 +4930,16 @@ function testNotif(){
   loading(true);
   call('enviarNotificacionPrueba',{numero:num,mensaje:'Prueba de conexion REDIL Restauracion - notificaciones funcionando',titulo:'Prueba de Conexion'},function(_,res){
     loading(false);if(res&&res.ok){toast('Mensaje enviado a '+num,'ok');}else toast('Error: '+(res&&res.msg||''),'er');
+  });
+}
+function guardarContactoDesdeNotif(){
+  var num=(g('nfNum')||'').replace(/[^0-9]/g,'');var nom=g('nfNom')||'';
+  if(!num||num.length<8){toast('Ingresa un numero y nombre validos','wa');return;}
+  loading(true);
+  call('saveContacto',{Nombre:nom,WhatsApp:num},function(_,res){
+    loading(false);
+    if(res&&res.ok){toast('Contacto guardado en la DB: '+nom,'ok');document.getElementById('nfNum').value='';document.getElementById('nfNom').value='';
+    }else{toast('Error al guardar contacto','er');}
   });
 }
 
