@@ -3085,7 +3085,7 @@ function editCnt(id){
   );
 }
 function saveCnt(id){const data={'IDContacto':id||'','Nombre':g('cf_n'),'Correo':g('cf_c'),'WhatsApp':g('cf_w')};if(!data['Nombre']){toast('Nombre requerido','wa');return;}loading(true);call('saveContacto',data,(_,res)=>{loading(false);if(res?.ok){toast('Guardado','ok');closeModal();loadCnt();}});}
-function delCnt(id){customConfirm('¿Estás seguro de eliminar este contacto?',function(ok){if(ok){loading(true);call('deleteContacto',{id},(_,res)=>{loading(false);if(res?.ok){toast('Eliminado','ok');loadCnt();}});}},{icon:'fa-trash-alt',color:'#e74c3c',danger:true});}
+function delCnt(id){customConfirm('¿Estás seguro de eliminar este contacto?',function(ok){if(ok){loading(true);call('deleteContacto',{IDcontacto:id,id:id},(_,res)=>{loading(false);if(res&&res.ok){toast('Eliminado','ok');loadCnt();}else{toast('Error al eliminar: '+(res&&res.msg||'Desconocido'),'er');}});}},{icon:'fa-trash-alt',color:'#e74c3c',danger:true});}
 
 // ══════════════════════════════════════════════════════════
 // USUARIOS
@@ -4863,12 +4863,16 @@ function editNotif(id){
   // Parse hora to AM/PM
   var h=horaToAMPM(n.hora_envio||'08:00');
   var aopts=''; for(var ampm=0;ampm<24;ampm++){var hh=ampm%12||12;var ap=ampm<12?'AM':'PM';var tv=String(ampm).padStart(2,'0')+':00';aopts+='<option value="'+tv+'"'+(ampm===h.hour?' selected':'')+'>'+hh+':00 '+ap+'</option>';}
+  var horaCustom=(n.hora_envio&&n.hora_envio!=='08:00'&&(parseInt((n.hora_envio||'').split(':')[0])%1===0));
   
   var body='<div class="fg2">'
     +'<div class="fgg full"><label>Titulo</label><input class="fc" id="nfTitulo" value="'+esc(n.titulo||'')+'" placeholder="Ej: Recordatorio Reunion"></div>'
     +'<div class="fgg full"><label>Mensaje <span class="req">*</span></label><textarea class="fc" id="nfMensaje" rows="3" placeholder="Mensaje personalizado...">'+esc(n.mensaje||'')+'</textarea></div>'
     +'<div class="fgg"><label>Frecuencia</label><select class="fc" id="nfFreq" onchange="nfFreqChange()">'+Object.keys(fqs).map(function(k){return '<option value="'+k+'"'+(n.frecuencia===k?' selected':'')+'>'+fqs[k]+'</option>';}).join('')+'</select></div>'
-    +'<div class="fgg"><label>Hora de envio</label><select class="fc" id="nfHora">'+aopts+'</select></div>'
+    +'<div class="fgg"><label>Hora de envio <span style="font-size:11px;font-weight:400;cursor:pointer;color:var(--pr2);margin-left:8px" onclick="toggleHoraCustom()">(personalizar)</span></label>'
+    +'<select class="fc" id="nfHora">'+aopts+'</select>'
+    +'<input type="time" class="fc" id="nfHoraCustom" value="'+(n.hora_envio||'08:00')+'" style="display:none">'
+    +'</div>'
     +'<div class="fgg" id="nfDiaS" style="display:'+(n.frecuencia==='semanal'?'block':'none')+'"><label>Dia semana</label><select class="fc" id="nfDiaSemana">'+ds+'</select></div>'
     +'<div class="fgg" id="nfDiaM" style="display:'+(n.frecuencia==='mensual'?'block':'none')+'"><label>Dia del mes</label><select class="fc" id="nfDiaMes">'+dm+'</select></div>'
     +'<div class="fgg"><label>Estado</label><select class="fc" id="nfActivo"><option value="1"'+(n.activo!==false?' selected':'')+'>Activo</option><option value="0"'+(n.activo===false?' selected':'')+'>Inactivo</option></select></div>'
@@ -4888,6 +4892,9 @@ function editNotif(id){
         return '<option value="'+esc(g)+'">Grupo '+esc(g)+' ('+count+' lideres)</option>';
       }).join(''):'')+'</select>'
     +'<button class="btn btn-ac btn-sm" onclick="addGrupoDest()"><i class="fas fa-layer-group"></i> Agregar Grupo</button></div>'
+    +'<div style="display:flex;gap:6px;margin-top:6px">'
+    +'<input class="fc" id="nfWALink" placeholder="Link de grupo WhatsApp (chat.whatsapp.com/...)" style="flex:1">'
+    +'<button class="btn btn-ol btn-sm" onclick="addWALink()" style="color:#25D366;border-color:#25D366"><i class="fab fa-whatsapp"></i> Agregar Link</button></div>'
     +'<div id="notifDests" style="margin-top:8px;max-height:150px;overflow-y:auto"></div>'
     +'</div>';
   openModal(id?'Editar Notificacion':'Nueva Notificacion',body,mFoot(id?"saveNotif('"+id+"')":'saveNotif()',id?'Actualizar':'Guardar'));
@@ -4924,8 +4931,13 @@ function nfFreqChange(){
 }
 function renderDestList(){
   var el=document.getElementById('nfDestList');if(!el)return;
-  if(!_notifDest.length){el.innerHTML='<div style="color:var(--tx2);font-size:12px;padding:10px;background:#fafbfc;border-radius:8px;text-align:center"><i class="fas fa-user-plus"></i> Sin destinatarios. Agrega numeros manualmente o carga contactos del sistema.</div>';return;}
+  if(!_notifDest.length){el.innerHTML='<div style="color:var(--tx2);font-size:12px;padding:10px;background:#fafbfc;border-radius:8px;text-align:center"><i class="fas fa-user-plus"></i> Sin destinatarios.</div>';return;}
   el.innerHTML=_notifDest.map(function(d,i){
+    if(d.walink){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#e6f7e6;border-radius:8px;margin:4px 0;font-size:13px;border:1px solid #c8e6c9">'
+        +'<span><i class="fab fa-whatsapp" style="color:#25D366"></i> <b>Grupo WhatsApp</b> <span style="font-size:11px;color:var(--tx2)">'+esc((d.walink||'').substring(0,40))+'...</span></span>'
+        +'<button class="ab-btn ab-del" style="padding:4px 8px;font-size:11px;flex-shrink:0" onclick="removeDest('+i+')"><i class="fas fa-trash-alt"></i> Quitar</button></div>';
+    }
     return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:#f8f9fe;border-radius:8px;margin:4px 0;font-size:13px;border:1px solid #eef0f5">'
       +'<span><b>'+esc(d.nombre||'Sin nombre')+'</b> <span style="color:var(--pr2);font-family:monospace;font-size:12px">'+esc(d.numero||'')+'</span></span>'
       +'<button class="ab-btn ab-del" style="padding:4px 8px;font-size:11px;flex-shrink:0" onclick="removeDest('+i+')"><i class="fas fa-trash-alt"></i> Quitar</button></div>';
@@ -4942,8 +4954,27 @@ function addDest(){
   var lbl=document.querySelector('#nfDestLabel');if(lbl)lbl.innerHTML='<i class="fas fa-users"></i> Destinatarios ('+_notifDest.length+')';
 }
 function removeDest(i){_notifDest.splice(i,1);renderDestList();var lbl=document.querySelector('#nfDestLabel');if(lbl)lbl.innerHTML='<i class="fas fa-users"></i> Destinatarios ('+_notifDest.length+')';}
+function toggleHoraCustom(){
+  var sel=document.getElementById('nfHora');var inp=document.getElementById('nfHoraCustom');
+  if(!sel||!inp)return;
+  if(sel.style.display==='none'){sel.style.display='';inp.style.display='none';}else{sel.style.display='none';inp.style.display='';}
+}
+function addWALink(){
+  var link=(g('nfWALink')||'').trim();
+  if(!link||!link.includes('chat.whatsapp.com')){toast('Ingresa un link valido de WhatsApp','wa');return;}
+  var ya=_notifDest.some(function(d){return d.walink===link;});
+  if(ya){toast('Este link ya esta agregado','wa');return;}
+  _notifDest.push({walink:link,nombre:'Grupo WhatsApp',numero:''});
+  document.getElementById('nfWALink').value='';
+  renderDestList();
+  var lbl=document.querySelector('#nfDestLabel');if(lbl)lbl.innerHTML='<i class="fas fa-users"></i> Destinatarios ('+_notifDest.length+')';
+  toast('Link de grupo agregado','ok');
+}
 function saveNotif(id){
-  var t=g('nfTitulo'),m=g('nfMensaje'),f=g('nfFreq'),h=g('nfHora'),a=g('nfActivo')==='1';
+  var t=g('nfTitulo'),m=g('nfMensaje'),f=g('nfFreq');
+  var selH=document.getElementById('nfHora');var cusH=document.getElementById('nfHoraCustom');
+  var h=(cusH&&cusH.style.display!=='none')?cusH.value:(selH?selH.value:'08:00');
+  var a=g('nfActivo')==='1';
   var ds=parseInt(g('nfDiaSemana')),dm=parseInt(g('nfDiaMes'));
   if(isNaN(ds)||ds==='')ds=null;if(isNaN(dm))dm=null;
   if(!m){toast('Mensaje requerido','wa');return;}
@@ -4983,11 +5014,12 @@ function toggleContactoDest(i,el){
   syncContactosWhatsapp();
 }
 function testNotif(){
-  var num=(g('notifTestNum')||'').replace(/[^0-9]/g,'');
-  if(!num||num.length<8){toast('Ingresa un numero valido','wa');return;}
+  var raw=(g('notifTestNum')||'').replace(/[^0-9]/g,'');
+  if(raw.length===8)raw='502'+raw;
+  if(!raw||raw.length<8){toast('Ingresa tus 8 digitos (ej: 58309505)','wa');return;}
   loading(true);
-  call('enviarNotificacionPrueba',{numero:num,mensaje:'Prueba de conexion REDIL Restauracion - notificaciones funcionando',titulo:'Prueba de Conexion'},function(_,res){
-    loading(false);if(res&&res.ok){toast('Mensaje enviado a '+num,'ok');}else toast('Error: '+(res&&res.msg||''),'er');
+  call('enviarNotificacionPrueba',{numero:raw,mensaje:'Prueba de conexion REDIL Restauracion - notificaciones funcionando',titulo:'Prueba de Conexion'},function(_,res){
+    loading(false);if(res&&res.ok){toast('Mensaje enviado a +502 '+raw.substring(3),'ok');}else toast('Error: '+(res&&res.msg||''),'er');
   });
 }
 function guardarContactoDesdeNotif(){
