@@ -262,7 +262,11 @@ def _procesar_notificaciones_pendientes():
                         dests = []
                     if not dests:
                         continue
+                    # Extraer links de grupos WhatsApp
+                    wa_links = [d.get("walink", "") for d in dests if d.get("walink")]
                     msg_wa = f"\U0001f4e2 *REDIL Restauracion* | {n.titulo + ' - ' if n.titulo else ''}{n.mensaje} | \U0001f4c5 {ahora.strftime('%d/%m/%Y')}"
+                    if wa_links:
+                        msg_wa += " | " + " | ".join(wa_links[:3])
                     for d in dests:
                         num = str(d.get("numero", "")).replace("+", "").replace(" ", "").replace("-", "")
                         if not num or len(num) < 8:
