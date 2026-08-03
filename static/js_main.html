@@ -4816,10 +4816,16 @@ function renderNotificaciones(el){
     +'<div class="mod-body"><div class="mod-grid" style="grid-template-columns:1fr 320px;gap:16px;align-items:start">'
     +'<div><table class="tb"><thead><tr><th>Titulo</th><th>Freq</th><th>Hora</th><th>Activo</th><th style="width:80px"></th></tr></thead><tbody id="notifTb"><tr><td colspan="5"><div class="empty-r"><i class="fas fa-bell"></i><p>Cargando...</p></div></td></tr></tbody></table>'
     +'<div style="margin-top:12px"><h3 style="margin-bottom:8px;color:var(--tx2)"><i class="fas fa-history"></i> Historial de Envios</h3><table class="tb"><thead><tr><th>Notificacion</th><th>Destino</th><th>Estado</th><th>Fecha</th></tr></thead><tbody id="notifLogTb"><tr><td colspan="4"><div class="empty-r"><p>Cargando...</p></div></td></tr></tbody></table></div></div>'
-    +'<div class="card" style="padding:16px"><h3 style="margin-bottom:12px"><i class="fas fa-address-book"></i> Destinatarios</h3><div id="notifDests" style="max-height:400px;overflow-y:auto"></div><div style="margin-top:10px;display:flex;gap:8px;"><button class="btn btn-in btn-sm" onclick="syncContactosWhatsapp()"><i class="fas fa-sync-alt"></i> Sincronizar desde DB</button></div><div style="margin-top:8px"><input class="fc" id="notifTestNum" placeholder="+502 5830-9505" style="width:100%"><button class="btn btn-pr btn-sm" onclick="testNotif()" style="margin-top:6px;width:100%"><i class="fas fa-paper-plane"></i> Probar numero</button></div></div>'
+    +'<div class="card" style="padding:14px"><h3 style="margin-bottom:10px"><i class="fas fa-address-book"></i> Destinatarios WhatsApp <span id="destCountBadge" style="font-size:11px;background:var(--pr2);color:#fff;border-radius:99px;padding:1px 8px;margin-left:6px">0</span></h3>'
+    +'<div style="display:flex;gap:4px;margin-bottom:8px"><input class="fc" id="notifWaNum" placeholder="58309505" style="flex:1;font-size:12px"><input class="fc" id="notifWaNom" placeholder="Nombre" style="flex:1;font-size:12px"><button class="btn btn-ok btn-sm" onclick="addWaContacto()" style="white-space:nowrap"><i class="fas fa-plus"></i> Agregar</button></div>'
+    +'<div style="display:flex;gap:4px;margin-bottom:8px"><input class="fc" id="notifWALink" placeholder="Link grupo chat.whatsapp.com/..." style="flex:1;font-size:11px"><button class="btn btn-ol btn-sm" onclick="addWAContactoLink()" style="white-space:nowrap;color:#25D366"><i class="fab fa-whatsapp"></i> Link</button></div>'
+    +'<div style="display:flex;gap:4px;margin-bottom:8px"><button class="btn btn-in btn-sm" onclick="syncContactosFromDB()" style="flex:1;font-size:11px"><i class="fas fa-sync-alt"></i> Cargar desde DB</button><button class="btn btn-er btn-sm" onclick="limpiarWaContactos()" style="font-size:11px"><i class="fas fa-trash"></i></button></div>'
+    +'<div id="waContactsList" style="max-height:280px;overflow-y:auto;margin-bottom:8px"></div>'
+    +'<div style="border-top:1px solid var(--brd);padding-top:8px"><input class="fc" id="notifTestNum" placeholder="8 digitos (ej: 58309505)" style="width:100%;font-size:12px"><button class="btn btn-pr btn-sm" onclick="testNotif()" style="margin-top:6px;width:100%"><i class="fas fa-paper-plane"></i> Probar numero</button></div></div>'
     +'</div></div>';
   loadNotifs();
   loadNotifLog();
+  loadWaContactos();
 }
 function loadNotifs(){
   call('getNotificaciones',{},function(_,res){
@@ -4879,7 +4885,7 @@ function editNotif(id){
     +'</div>'
     +'<div style="margin-top:14px;border-top:1px solid var(--brd);padding-top:12px">'
     +'<label style="font-weight:700;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center"><span id="nfDestLabel"><i class="fas fa-users"></i> Destinatarios ('+dests.length+')</span>'
-    +'<button class="btn btn-ol btn-sm" onclick="syncContactosWhatsapp()" title="Cargar contactos del sistema"><i class="fas fa-sync-alt"></i> Cargar Contactos</button></label>'
+    +'<button class="btn btn-ol btn-sm" onclick="usarWaContactosEnNotif()" title="Cargar contactos guardados"><i class="fas fa-sync-alt"></i> Cargar Contactos</button></label>'
     +'<div id="nfDestList" style="max-height:180px;overflow-y:auto;margin-bottom:10px"></div>'
     +'<div style="display:flex;gap:6px;margin-bottom:8px">'
     +'<input class="fc" id="nfNum" placeholder="+502 XXXX-XXXX" style="flex:1"><input class="fc" id="nfNom" placeholder="Nombre" style="flex:1">'
@@ -4986,32 +4992,76 @@ function saveNotif(id){
 function delNotif(id){
   customConfirm('Eliminar esta notificacion?',function(ok){if(!ok)return;loading(true);call('deleteNotificacion',{id:id},function(_,res){loading(false);if(res&&res.ok){toast('Eliminada','ok');loadNotifs();}else toast('Error','er');});},{icon:'fa-trash-alt',danger:true});
 }
-function syncContactosWhatsapp(){
+var _waContactos=[];
+function loadWaContactos(){
+  // Intentar cargar desde localStorage
+  try{var saved=localStorage.getItem('redil_wa_contactos');if(saved){var arr=JSON.parse(saved);if(Array.isArray(arr)&&arr.length)_waContactos=arr;}}catch(e){}
+  renderWaContactos();
+}
+function renderWaContactos(){
+  var el=document.getElementById('waContactsList');if(!el)return;
+  var badge=document.getElementById('destCountBadge');if(badge)badge.textContent=_waContactos.length;
+  if(!_waContactos.length){el.innerHTML='<div style="color:var(--tx2);font-size:12px;padding:8px;text-align:center">Sin contactos. Agrega numeros o carga desde DB.</div>';return;}
+  el.innerHTML=_waContactos.map(function(c,i){
+    if(c.walink){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:#e8f5e9;border-radius:6px;margin:3px 0;font-size:12px;border:1px solid #c8e6c9">'
+        +'<span><i class="fab fa-whatsapp" style="color:#25D366"></i> <b>Grupo</b> <span style="font-size:10px;color:var(--tx2)">'+esc((c.walink||'').replace('https://chat.whatsapp.com/','').substring(0,25))+'...</span></span>'
+        +'<button class="ab-btn ab-del" style="padding:2px 6px;font-size:10px;flex-shrink:0" onclick="removeWaContacto('+i+')"><i class="fas fa-times"></i></button></div>';
+    }
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;background:#f8f9fe;border-radius:6px;margin:3px 0;font-size:12px;border:1px solid #eef0f5">'
+      +'<span><b>'+esc(c.nombre||'Sin nombre')+'</b> <span style="color:var(--pr2);font-size:11px">+502 '+esc(c.numero||'')+'</span></span>'
+      +'<button class="ab-btn ab-del" style="padding:2px 6px;font-size:10px;flex-shrink:0" onclick="removeWaContacto('+i+')"><i class="fas fa-times"></i></button></div>';
+  }).join('');
+  saveWaContactos();
+}
+function saveWaContactos(){try{localStorage.setItem('redil_wa_contactos',JSON.stringify(_waContactos));}catch(e){}}
+function addWaContacto(){
+  var num=(g('notifWaNum')||'').replace(/\D/g,'');
+  var nom=(g('notifWaNom')||'').trim();
+  if(!num||num.length!==8){toast('Ingresa los 8 digitos exactos','wa');return;}
+  if(!nom){nom='Contacto';}
+  var ya=_waContactos.some(function(c){return c.numero===num;});
+  if(ya){toast('Este numero ya existe','wa');return;}
+  _waContactos.unshift({numero:num,nombre:nom});
+  document.getElementById('notifWaNum').value='';document.getElementById('notifWaNom').value='';
+  renderWaContactos();
+  toast('Contacto agregado: '+nom,'ok');
+}
+function addWAContactoLink(){
+  var link=(g('notifWALink')||'').trim();
+  if(!link||!link.includes('chat.whatsapp.com')){toast('Link de grupo WhatsApp invalido','wa');return;}
+  _waContactos.unshift({walink:link,nombre:'Grupo',numero:''});
+  document.getElementById('notifWALink').value='';
+  renderWaContactos();
+  toast('Link de grupo agregado','ok');
+}
+function removeWaContacto(i){_waContactos.splice(i,1);renderWaContactos();}
+function limpiarWaContactos(){
+  customConfirm('Eliminar TODOS los contactos WhatsApp?',function(ok){if(ok){_waContactos=[];renderWaContactos();toast('Lista limpiada','ok');}});
+}
+function syncContactosFromDB(){
   loading(true);
   call('getContactosWhatsapp',{},function(_,res){
     loading(false);
     var data=(res&&res.data)||[];
-    var el=document.getElementById('notifDests');if(!el)return;
-    if(!data.length){el.innerHTML='<div class="empty-r"><p>Sin contactos con WhatsApp</p></div>';return;}
-    el.innerHTML='<div style="font-size:12px;color:var(--tx2);margin-bottom:8px">Click para agregar/quitar de la notificacion actual</div>'
-      +data.map(function(d,i){
-        var enNotif=_notifDest.some(function(x){return x.numero===d.numero;});
-        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:'+(enNotif?'#ecfdf5':'#f8f9fe')+';border-radius:6px;margin:4px 0;font-size:13px;cursor:pointer" onclick="toggleContactoDest('+i+',this)">'
-          +'<span><b>'+esc(d.nombre||'')+'</b> <span style="color:var(--tx2);font-size:11px">'+esc(d.numero||'')+'</span></span>'
-          +'<span class="bdg '+(enNotif?'bg':'bb')+'" style="font-size:10px">'+(enNotif?'Agregado':'+ Agregar')+'</span>'
-          +'</div>';
-      }).join('');
-    window._contactosSync=data;
-    toast(data.length+' contactos cargados desde la DB','ok');
+    if(!data.length){toast('Sin contactos en la DB','wa');return;}
+    var added=0;
+    data.forEach(function(c){
+      var num=(c.numero||'').replace(/\D/g,'');
+      if(num.length===8){
+        var ya=_waContactos.some(function(x){return x.numero===num;});
+        if(!ya){_waContactos.unshift({numero:num,nombre:c.nombre||'DB Contact',tipo:c.tipo||''});added++;}
+      }
+    });
+    renderWaContactos();
+    toast(added+' contactos cargados desde la DB','ok');
   });
 }
-function toggleContactoDest(i,el){
-  var c=window._contactosSync[i];if(!c)return;
-  var idx=_notifDest.findIndex(function(x){return x.numero===c.numero;});
-  if(idx>=0){_notifDest.splice(idx,1);}else{_notifDest.push({numero:c.numero,nombre:c.nombre||''});}
+function usarWaContactosEnNotif(){
+  _notifDest=_waContactos.filter(function(c){return c.numero;}).map(function(c){return{numero:c.numero,nombre:c.nombre};});
   renderDestList();
   var lbl=document.querySelector('#nfDestLabel');if(lbl)lbl.innerHTML='<i class="fas fa-users"></i> Destinatarios ('+_notifDest.length+')';
-  syncContactosWhatsapp();
+  toast(_notifDest.length+' contactos cargados en notificacion actual','ok');
 }
 function testNotif(){
   var raw=(g('notifTestNum')||'').replace(/[^0-9]/g,'');
