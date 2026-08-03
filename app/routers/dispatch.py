@@ -1134,19 +1134,21 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
 
         # ── WHATSAPP ──
         if action == "sendWhatsapp":
-            from app.whatsapp_utils import send_whatsapp, send_whatsapp_bulk
+            from app.whatsapp_utils import send_whatsapp, send_whatsapp_bulk, send_whatsapp_template
             to_num = payload.get("to", "")
             msg = payload.get("message", "")
+            forzar_texto = payload.get("forzarTexto", False)
             if not msg:
                 return {"ok": False, "msg": "Mensaje requerido"}
-            # Envío a múltiples números
-            if to_num and "," in to_num:
-                nums = [n.strip() for n in to_num.split(",") if n.strip()]
-                result = send_whatsapp_bulk(nums, msg)
-            elif to_num:
-                result = send_whatsapp(to_num, msg)
-            else:
+            nums = [n.strip() for n in to_num.split(",") if n.strip()] if to_num and "," in to_num else [to_num] if to_num else []
+            if not nums:
                 return {"ok": False, "msg": "Número requerido"}
+            if forzar_texto:
+                result = send_whatsapp_bulk(nums, msg) if len(nums) > 1 else send_whatsapp(nums[0], msg)
+            else:
+                results = [send_whatsapp_template(n, params=[f"[REDIL Restauracion] {msg}"]) for n in nums]
+                ok_count = sum(1 for r in results if r.get("ok"))
+                result = {"ok": ok_count > 0, "msg": f"Plantilla enviada a {ok_count}/{len(nums)} contactos"}
             return result
 
         # ── ENVÍO MASIVO WHATSAPP (desde Centro Envíos) ──
@@ -1155,17 +1157,16 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             numbers = payload.get("numeros", [])
             msg = payload.get("mensaje", "")
             pdf_url = payload.get("pdfUrl", "")
-            usar_plantilla = payload.get("usarPlantilla", False)
+            forzar_texto = payload.get("usarPlantilla") == False
             if not numbers or not msg:
                 return {"ok": False, "msg": "Números y mensaje requeridos"}
-            # Con plantilla aprobada (funciona fuera de la ventana de 24h)
-            if usar_plantilla:
-                var_texto = pdf_url if pdf_url else msg
-                sys_nom_whatsapp = "REDIL Restauracion"  # nombre corto para WhatsApp
-                results = [send_whatsapp_template(n, params=[f"[{sys_nom_whatsapp}] {var_texto}"]) for n in numbers]
-                ok_count = sum(1 for r in results if r.get("ok"))
-                return {"ok": ok_count > 0, "msg": f"Plantilla enviada a {ok_count}/{len(numbers)} contactos"}
-            return send_whatsapp_bulk(numbers, msg, pdf_url if pdf_url else None)
+            if forzar_texto:
+                return send_whatsapp_bulk(numbers, msg, pdf_url if pdf_url else None)
+            var_texto = pdf_url if pdf_url else msg
+            sys_nom_whatsapp = "REDIL Restauracion"
+            results = [send_whatsapp_template(n, params=[f"[{sys_nom_whatsapp}] {var_texto}"]) for n in numbers]
+            ok_count = sum(1 for r in results if r.get("ok"))
+            return {"ok": ok_count > 0, "msg": f"Plantilla enviada a {ok_count}/{len(numbers)} contactos"}
 
         # ── RECURRENTE (PAGOS) ──
         if action == "getPlanes":
