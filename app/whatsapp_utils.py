@@ -145,39 +145,87 @@ def send_whatsapp_document(to_number, pdf_url, caption="", filename="informe.pdf
         return {"ok": False, "msg": str(e)}
 
 def sincronizar_contactos_proxy(db_session=None):
-    """Sincroniza todos los hermanos con telefono al proxy para enrutamiento."""
+    """Sincroniza todos los contactos con telefono al proxy para enrutamiento."""
     if not PROXY_URL or not SISTEMA_ID:
         logger.warning("Proxy no configurado, omitiendo sincronizacion de contactos")
         return {"ok": False, "msg": "Proxy no configurado"}
 
     try:
         from app.database import SessionLocal
-        from app.models import Hermano
+        from app.models import Hermano, Supervisor, Pastore, AyudaPastor, Contacto, Bautizo
         cerrar_db = False
         if db_session is None:
             db_session = SessionLocal()
             cerrar_db = True
 
         try:
-            hermanos = db_session.query(Hermano).filter(
-                Hermano.telefono.isnot(None),
-                Hermano.telefono != "",
-                Hermano.activo == True
-            ).all()
-
             count = 0
-            for h in hermanos:
-                phone = str(h.telefono).replace("+", "").replace(" ", "").replace("-", "")
-                if phone and len(phone) >= 8:
+            telefonos_vistos = set()
+
+            # Supervisor
+            for obj in db_session.query(Supervisor).filter(Supervisor.telefono.isnot(None), Supervisor.telefono != "").all():
+                phone = str(obj.telefono).replace("+", "").replace(" ", "").replace("-", "")
+                if phone and len(phone) >= 8 and phone not in telefonos_vistos:
+                    telefonos_vistos.add(phone)
                     try:
                         httpx.post(f"{PROXY_URL}/api/systems/register-phone", json={
-                            "system_id": SISTEMA_ID,
-                            "phone": phone,
-                            "internal_user_id": h.codigo_lead
+                            "system_id": SISTEMA_ID, "phone": phone,
+                            "internal_user_id": f"sup_{obj.codigo_sup}"
                         }, timeout=3)
                         count += 1
-                    except Exception:
-                        pass
+                    except Exception: pass
+
+            # Pastore
+            for obj in db_session.query(Pastore).filter(Pastore.telefono.isnot(None), Pastore.telefono != "").all():
+                phone = str(obj.telefono).replace("+", "").replace(" ", "").replace("-", "")
+                if phone and len(phone) >= 8 and phone not in telefonos_vistos:
+                    telefonos_vistos.add(phone)
+                    try:
+                        httpx.post(f"{PROXY_URL}/api/systems/register-phone", json={
+                            "system_id": SISTEMA_ID, "phone": phone,
+                            "internal_user_id": f"pastor_{obj.codigo_pastor}"
+                        }, timeout=3)
+                        count += 1
+                    except Exception: pass
+
+            # AyudaPastor
+            for obj in db_session.query(AyudaPastor).filter(AyudaPastor.telefono.isnot(None), AyudaPastor.telefono != "").all():
+                phone = str(obj.telefono).replace("+", "").replace(" ", "").replace("-", "")
+                if phone and len(phone) >= 8 and phone not in telefonos_vistos:
+                    telefonos_vistos.add(phone)
+                    try:
+                        httpx.post(f"{PROXY_URL}/api/systems/register-phone", json={
+                            "system_id": SISTEMA_ID, "phone": phone,
+                            "internal_user_id": f"ayuda_{obj.codigo_ayuda}"
+                        }, timeout=3)
+                        count += 1
+                    except Exception: pass
+
+            # Contacto
+            for obj in db_session.query(Contacto).filter(Contacto.telefono.isnot(None), Contacto.telefono != "").all():
+                phone = str(obj.telefono).replace("+", "").replace(" ", "").replace("-", "")
+                if phone and len(phone) >= 8 and phone not in telefonos_vistos:
+                    telefonos_vistos.add(phone)
+                    try:
+                        httpx.post(f"{PROXY_URL}/api/systems/register-phone", json={
+                            "system_id": SISTEMA_ID, "phone": phone,
+                            "internal_user_id": f"contacto_{obj.id}"
+                        }, timeout=3)
+                        count += 1
+                    except Exception: pass
+
+            # Bautizo
+            for obj in db_session.query(Bautizo).filter(Bautizo.telefono.isnot(None), Bautizo.telefono != "").all():
+                phone = str(obj.telefono).replace("+", "").replace(" ", "").replace("-", "")
+                if phone and len(phone) >= 8 and phone not in telefonos_vistos:
+                    telefonos_vistos.add(phone)
+                    try:
+                        httpx.post(f"{PROXY_URL}/api/systems/register-phone", json={
+                            "system_id": SISTEMA_ID, "phone": phone,
+                            "internal_user_id": f"bautizo_{obj.id}"
+                        }, timeout=3)
+                        count += 1
+                    except Exception: pass
 
             logger.info(f"Sincronizados {count} contactos al proxy")
             return {"ok": True, "msg": f"{count} contactos sincronizados", "total": count}
