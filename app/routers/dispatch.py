@@ -27,6 +27,17 @@ def pdf_safe(s):
     """Convierte texto a latin-1 para fuentes core de fpdf2 (sin emojis ni unicode raro)."""
     return str(s or "").encode("latin-1", "replace").decode("latin-1")
 
+def _formatear_whatsapp(msg, pdf_url=""):
+    """Formatea mensaje profesional para WhatsApp con emojis y contexto.
+    El template de Meta es: 'Notificacion: {{1}} Abre el enlace en tu correo.'"""
+    from datetime import datetime
+    fecha = datetime.now().strftime("%d/%m/%Y")
+    msg = str(msg or "").strip()
+    hay_pdf = bool(pdf_url and pdf_url.strip())
+    if hay_pdf:
+        return f"\U0001f4ca *REDIL Restauracion*\n\U0001f4c4 *Reporte generado:* {msg}\n\U0001f4c5 {fecha}\n\U000026a1 Abra el enlace en su correo para ver el documento completo."
+    return f"\U0001f514 *REDIL Restauracion*\n{msg}\n\U0001f4c5 {fecha}"
+
 ALL_MENU_IDS = [
     'dashboard','reportes','reporteDigital','formulario','generador',
     'hermanos','cargaMasiva','seguimientos','privilegios',
@@ -1146,7 +1157,8 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             if forzar_texto:
                 result = send_whatsapp_bulk(nums, msg) if len(nums) > 1 else send_whatsapp(nums[0], msg)
             else:
-                results = [send_whatsapp_template(n, params=[f"[REDIL Restauracion] {msg}"]) for n in nums]
+                texto_wa = _formatear_whatsapp(msg)
+                results = [send_whatsapp_template(n, params=[texto_wa]) for n in nums]
                 ok_count = sum(1 for r in results if r.get("ok"))
                 result = {"ok": ok_count > 0, "msg": f"Plantilla enviada a {ok_count}/{len(nums)} contactos"}
             return result
@@ -1162,9 +1174,8 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                 return {"ok": False, "msg": "Números y mensaje requeridos"}
             if forzar_texto:
                 return send_whatsapp_bulk(numbers, msg, pdf_url if pdf_url else None)
-            var_texto = pdf_url if pdf_url else msg
-            sys_nom_whatsapp = "REDIL Restauracion"
-            results = [send_whatsapp_template(n, params=[f"[{sys_nom_whatsapp}] {var_texto}"]) for n in numbers]
+            texto_wa = _formatear_whatsapp(msg, pdf_url)
+            results = [send_whatsapp_template(n, params=[texto_wa]) for n in numbers]
             ok_count = sum(1 for r in results if r.get("ok"))
             return {"ok": ok_count > 0, "msg": f"Plantilla enviada a {ok_count}/{len(numbers)} contactos"}
 
