@@ -381,17 +381,24 @@ function call(action,payload,cb){
     .catch(function(e){if(cb)cb(e,null);});
 }
 
-// Cargar logo y nombre desde config del sistema
+// Cargar logo y nombre desde config del sistema - con timeout para evitar bloqueo
+(function(){
+  setTimeout(function(){
+    if(document.getElementById('hdrTitle')&&document.getElementById('hdrTitle').textContent==='Cargando...'){
+      document.getElementById('hdrTitle').textContent='REDIL Restauracion';
+    }
+  },5000);
+})();
 call('getConfig',{},function(err,cfg){
-  if(err||!cfg||!cfg.ok) return;
+  if(err||!cfg||!cfg.ok){document.getElementById('hdrTitle').textContent='REDIL Restauracion';return;}
   if(cfg.logoUrl){
     const lw=document.getElementById('logoWrap');
-    if(lw) lw.innerHTML=`<img src="${cfg.logoUrl}" style="width:100%;height:100%;object-fit:cover" alt="Logo">`;
+    if(lw) lw.innerHTML='<img src=\"'+esc(cfg.logoUrl)+'\" style=\"width:100%;height:100%;object-fit:cover\" alt=\"Logo\">';
   }
   if(cfg.nombre){
     const ht=document.getElementById('hdrTitle');
     if(ht) ht.textContent=cfg.nombre;
-  }
+  }else{document.getElementById('hdrTitle').textContent='REDIL Restauracion';}
 });
 
 // Fecha hoy
