@@ -493,6 +493,15 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
         if action == "deleteContacto":
             return delete_entity(db, Contacto, payload)
 
+        if action == "deleteAllContactos":
+            try:
+                count = db.query(Contacto).count()
+                db.query(Contacto).delete()
+                db.commit()
+                return {"ok": True, "msg": f"{count} contactos eliminados"}
+            except Exception as e:
+                return {"ok": False, "msg": str(e)}
+
         # ── DIEZMOS (raw array) ──
         if action == "getDiezmos":
             q = db.query(Diezmo)
