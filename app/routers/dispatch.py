@@ -28,14 +28,15 @@ def pdf_safe(s):
     return str(s or "").encode("latin-1", "replace").decode("latin-1")
 
 def _formatear_whatsapp(msg, pdf_url=""):
-    """Formato profesional para plantilla: 'Notificacion: {{1}} Abre el enlace en tu correo.'"""
+    """Formato profesional con doble espacio entre secciones. Template: 'Notificacion: {{1}} Abre el enlace en tu correo.'"""
     from datetime import datetime
     fecha = datetime.now().strftime("%d/%m/%Y")
     msg = str(msg or "").strip()
+    sep = "  "  # doble espacio = separador visual
     hay_pdf = bool(pdf_url and pdf_url.strip())
     if hay_pdf:
-        return f"\U0001f4ca *REDIL Restauracion* \U0001f4c4 *Reporte:* {msg} \U0001f4c5 {fecha}"
-    return f"\U0001f514 *REDIL Restauracion* | {msg} | \U0001f4c5 {fecha}"
+        return f"\U0001f4ca *REDIL Restauracion*{sep}\U0001f4c4 *Reporte:*{sep}{msg}{sep}\U0001f4c5 {fecha}"
+    return f"\U0001f514 *REDIL Restauracion*{sep}{msg}{sep}\U0001f4c5 {fecha}"
 
 ALL_MENU_IDS = [
     'dashboard','reportes','reporteDigital','formulario','generador',
@@ -1260,7 +1261,7 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             if not numero or not mensaje:
                 return {"ok": False, "msg": "Numero y mensaje requeridos"}
             fecha = dt.now().strftime("%d/%m/%Y")
-            msg_wa = f"\U0001f4e2 *REDIL Restauracion* | {titulo + ' - ' if titulo else ''}{mensaje} | \U0001f4c5 {fecha}"
+            msg_wa = f"\U0001f4e2 *REDIL Restauracion*  {titulo + ' - ' if titulo else ''}{mensaje}  \U0001f4c5 {fecha}"
             resp = send_whatsapp_template(numero, params=[msg_wa])
             db.add(NotificacionLog(
                 notificacion_id=0, titulo=titulo, destino=numero,
