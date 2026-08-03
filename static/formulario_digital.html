@@ -109,7 +109,7 @@ textarea{resize:none;line-height:1.5}
   <!-- HEADER -->
   <div class="hdr" id="mainHdr">
     <div id="logoWrap" style="width:56px;height:56px;border-radius:50%;overflow:hidden;border:2.5px solid rgba(255,255,255,.4);margin:0 auto 10px;background:rgba(255,255,255,.1);display:flex;align-items:center;justify-content:center;font-size:22px">⛪</div>
-    <h1 id="hdrTitle">REDIL Restauracion</h1>
+    <h1 id="hdrTitle">Cargando...</h1>
     <p>Formulario de Reporte de Grupo Familiar</p>
     <div class="hdr-badge">📱 Formulario Digital</div>
     <div style="margin-top:12px;opacity:.85;border-top:1px solid rgba(255,255,255,.15);padding-top:10px;display:flex;align-items:center;justify-content:center;gap:10px">
@@ -131,7 +131,7 @@ textarea{resize:none;line-height:1.5}
         <div class="fg">
           <label>Buscar por código o nombre del líder <span class="req">*</span></label>
           <div style="position:relative">
-            <input type="text" id="codigo" name="codigo" placeholder="Código o nombre del líder" oninput="onCodigoInput()" autocomplete="off" required>
+            <input type="text" id="codigo" name="codigo" placeholder="Código o nombre" oninput="onCodigoInput()" autocomplete="off" required>
             <div id="codigoSugerencias" style="display:none;position:absolute;top:100%;left:0;right:0;background:#fff;border:2px solid var(--pr2);border-radius:0 0 10px 10px;max-height:220px;overflow-y:auto;z-index:100;box-shadow:0 8px 24px rgba(0,0,0,.15)"></div>
           </div>
         </div>
@@ -382,30 +382,18 @@ function call(action,payload,cb){
 }
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
 
-// Cargar logo y nombre desde sistema
-try{
-  call('getConfig',{},function(err,cfg){
-    try{
-      var hd=document.getElementById('hdrTitle');
-      if(!err&&cfg&&cfg.ok){
-        if(cfg.logoUrl){
-          var lw=document.getElementById('logoWrap');
-          if(lw)lw.innerHTML='<img src=\"'+cfg.logoUrl+'\">';
-        }
-        if(cfg.nombre&&hd)hd.textContent=cfg.nombre;
-        else if(hd)hd.textContent='REDIL Restauracion';
-      }else{if(hd)hd.textContent='REDIL Restauracion';}
-    }catch(e2){
-      var hd2=document.getElementById('hdrTitle');
-      if(hd2)hd2.textContent='REDIL Restauracion';
-    }
-  });
-}catch(e3){}
-// Fallback rapido
-setTimeout(function(){
-  var h=document.getElementById('hdrTitle');
-  if(h&&h.textContent.indexOf('Cargando')>=0)h.textContent='REDIL Restauracion';
-},2000);
+// Cargar logo y nombre desde config del sistema
+call('getConfig',{},function(err,cfg){
+  if(err||!cfg||!cfg.ok) return;
+  if(cfg.logoUrl){
+    const lw=document.getElementById('logoWrap');
+    if(lw) lw.innerHTML='<img src=\"'+cfg.logoUrl+'\" style=\"width:100%;height:100%;object-fit:cover\" alt=\"Logo\">';
+  }
+  if(cfg.nombre){
+    const ht=document.getElementById('hdrTitle');
+    if(ht) ht.textContent=cfg.nombre;
+  }
+});
 
 // Fecha hoy
 document.getElementById('fecha').value=new Date().toISOString().split('T')[0];
@@ -444,82 +432,65 @@ function recargarFormulario(){
   document.getElementById('codigo').focus();
 }
 
-var _sugTimer=null;
 function onCodigoInput(){
-  try{
   document.getElementById('liderInfo').style.display='none';
   document.getElementById('liderNotFound').style.display='none';
   liderData=null;
   var q=document.getElementById('codigo').value.trim();
   if(q.length<2){document.getElementById('codigoSugerencias').style.display='none';return;}
-  clearTimeout(_sugTimer);
-  _sugTimer=setTimeout(function(){
+  clearTimeout(window._sugTimer);
+  window._sugTimer=setTimeout(function(){
     call('buscarLideres',{query:q},function(err,res){
-      var sug=document.getElementById('codigoSugerencias');
-      if(!sug)return;
+      var sug=document.getElementById('codigoSugerencias');if(!sug)return;
       var data=(res&&res.data)||(Array.isArray(res)?res:[]);
       if(!data||!data.length){sug.style.display='none';return;}
       sug.innerHTML=data.map(function(h){
-        return '<div class="sug-item" onclick="seleccionarLider(\''+esc(h['CodigoL']||'')+'\')" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #eee;transition:background .15s" onmouseenter="this.style.background=\'#f0f4ff\'" onmouseleave="this.style.background=\'#fff\'">'+
-          '<div style="font-weight:700;color:var(--pr);font-size:14px">'+esc(h['NombreL'])+' <span style="font-family:monospace;font-size:12px;color:var(--pr2);margin-left:6px">'+esc(h['CodigoL'])+'</span></div>'+
-          '<div style="font-size:11px;color:var(--tx3)">D'+esc(h['Distrito'])+' Z'+esc(h['Zona'])+' | '+esc(h['Pastor Zona']||'—')+'</div>'+
-          '</div>';
+        return '<div class=sug-item onclick=seleccionarLider(''+esc(h.CodigoL||'')+'') style=padding:10px 14px;cursor:pointer;border-bottom:1px solid #eee onmouseenter=this.style.background='#f0f4ff' onmouseleave=this.style.background='#fff'>'
+          +'<div style=font-weight:700;color:var(--pr);font-size:14px>'+esc(h.NombreL)+' <span style=font-family:monospace;font-size:12px;color:var(--pr2);margin-left:6px>'+esc(h.CodigoL)+'</span></div>'
+          +'<div style=font-size:11px;color:var(--tx3)>D'+esc(h.Distrito)+' Z'+esc(h.Zona)+' | '+esc(h['Pastor Zona']||'-')+'</div></div>';
       }).join('');
       sug.style.display='block';
     });
-  },250);
-  }catch(e){console.error('onCodigoInput error:',e);}
+  },300);
 }
 function seleccionarLider(codigo){
   document.getElementById('codigo').value=codigo;
   document.getElementById('codigoSugerencias').style.display='none';
   buscarLider();
 }
-// Cerrar sugerencias al hacer clic fuera
-document.addEventListener('click',function(e){
-  var sug=document.getElementById('codigoSugerencias');
-  var inp=document.getElementById('codigo');
-  if(sug&&inp&&e.target!==inp&&!sug.contains(e.target))sug.style.display='none';
-});
-
 function buscarLider(){
   const query=document.getElementById('codigo').value.trim();
-  if(!query){notify('Ingresa un código o nombre de líder','wa');return;}
-  const btn=document.querySelector('.card .btn-submit');
-  btn.disabled=true;
+  if(!query){notify('Ingresa un código o nombre','wa');return;}
+  const btn=document.querySelector('.card .btn-submit');btn.disabled=true;
   document.getElementById('liderInfo').style.display='none';
   document.getElementById('liderNotFound').style.display='none';
   call('buscarLideres',{query:query},function(err,res){
     btn.disabled=false;
     var data=(res&&res.data)||(Array.isArray(res)?res:[]);
-    var sug=document.getElementById('codigoSugerencias');
-    if(err||!data||!data.length){
-      document.getElementById('liderNotFound').style.display='block';
-      if(sug)sug.style.display='none';
-      return;
+    if(!data||!data.length){document.getElementById('liderNotFound').style.display='block';return;}
+    if(data.length===1){
+      liderData=data[0];
+      document.getElementById('codigo').value=data[0].CodigoL||'';
+      document.getElementById('lNom').textContent='✓ '+data[0].NombreL+' ('+data[0].CodigoL+')';
+      document.getElementById('lDet').textContent='Sector: '+(data[0]['Sup SectorL']||'-')+' · Área: '+(data[0]['Sup AreaL']||'-')+' · Pastor Zona: '+(data[0]['Pastor Zona']||'-');
+      document.getElementById('liderInfo').style.display='block';
+    }else{
+      var sug=document.getElementById('codigoSugerencias');if(!sug)return;
+      sug.innerHTML=data.map(function(h){
+        return '<div class=sug-item onclick=seleccionarLider(''+esc(h.CodigoL||'')+'') style=padding:10px 14px;cursor:pointer;border-bottom:1px solid #eee onmouseenter=this.style.background='#f0f4ff' onmouseleave=this.style.background='#fff'>'
+          +'<div style=font-weight:700;color:var(--pr);font-size:14px>'+esc(h.NombreL)+' <span style=font-family:monospace;font-size:12px;color:var(--pr2);margin-left:6px>'+esc(h.CodigoL)+'</span></div>'
+          +'<div style=font-size:11px;color:var(--tx3)>D'+esc(h.Distrito)+' Z'+esc(h.Zona)+' | '+esc(h['Pastor Zona']||'-')+'</div></div>';
+      }).join('');
+      sug.innerHTML+='<div style=text-align:center;padding:8px;font-size:11px;color:var(--tx3);cursor:pointer;background:#fafbfc onclick=document.getElementById('codigoSugerencias').style.display='none'>'+data.length+' resultados — Cerrar</div>';
+      sug.style.display='block';
     }
-    // Siempre mostrar dropdown, incluso con 1 resultado
-    if(!sug)return;
-    sug.innerHTML=data.map(function(h,i){
-      return '<div class="sug-item" onclick="seleccionarLider(\''+esc(h['CodigoL']||'')+'\')" style="padding:10px 14px;cursor:pointer;border-bottom:1px solid #eee;transition:background .15s" onmouseenter="this.style.background=\'#f0f4ff\'" onmouseleave="this.style.background=\'#fff\'">'+
-        '<div style="font-weight:700;color:var(--pr);font-size:14px">'+esc(h['NombreL'])+' <span style="font-family:monospace;font-size:12px;color:var(--pr2);margin-left:6px">'+esc(h['CodigoL'])+'</span></div>'+
-        '<div style="font-size:11px;color:var(--tx3)">D'+esc(h['Distrito'])+' Z'+esc(h['Zona'])+' | '+esc(h['Pastor Zona']||'—')+'</div>'+
-        '</div>';
-    }).join('');
-    sug.innerHTML+='<div style="text-align:center;padding:8px;font-size:11px;color:var(--tx3);cursor:pointer;background:#fafbfc" onclick="document.getElementById(\'codigoSugerencias\').style.display=\'none\'">'+data.length+' resultado(s) — Cerrar</div>';
-    sug.style.display='block';
   });
 }
-function seleccionarLiderDirecto(h){
-  liderData=h;
-  document.getElementById('codigo').value=h['CodigoL']||'';
-  document.getElementById('lNom').textContent='✓ '+h['NombreL']+' ('+h['CodigoL']+')';
-  document.getElementById('lDet').textContent='Sector: '+(h['Sup SectorL']||'—')+' · Área: '+(h['Sup AreaL']||'—')+' · Pastor Zona: '+(h['Pastor Zona']||'—');
-  document.getElementById('liderInfo').style.display='block';
-  document.getElementById('codigoSugerencias').style.display='none';
-}
-  });
-}
+document.addEventListener('click',function(e){
+  var sug=document.getElementById('codigoSugerencias');var inp=document.getElementById('codigo');
+  if(sug&&inp&&e.target!==inp&&!sug.contains(e.target))sug.style.display='none';
+});
+
 
 function num(id){return parseInt(document.getElementById(id).value)||0;}
 function calcAsist(){document.getElementById('totalAsist').textContent=num('hermanos')+num('amigos')+num('ninos');}
