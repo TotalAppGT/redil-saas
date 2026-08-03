@@ -4816,25 +4816,34 @@ function editNotif(id){
     +'<div class="fgg" id="nfDiaM" style="display:'+(n.frecuencia==='mensual'?'block':'none')+'"><label>Dia del mes</label><select class="fc" id="nfDiaMes">'+dm+'</select></div>'
     +'<div class="fgg"><label>Estado</label><select class="fc" id="nfActivo"><option value="1"'+(n.activo!==false?' selected':'')+'>Activo</option><option value="0"'+(n.activo===false?' selected':'')+'>Inactivo</option></select></div>'
     +'</div>'
-    +'<div style="margin-top:12px"><label style="font-weight:600;display:block;margin-bottom:8px"><i class="fas fa-users"></i> Destinatarios ('+dests.length+')</label>'
-    +'<div style="max-height:150px;overflow-y:auto;margin-bottom:8px">'
-    +(dests.length?dests.map(function(d,i){return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:#f8f9fe;border-radius:6px;margin:4px 0;font-size:13px"><span><b>'+esc(d.nombre||'')+'</b> '+esc(d.numero||'')+'</span><button class="ab-btn ab-del" style="padding:2px 6px;font-size:11px" onclick="removeDest('+i+')"><i class="fas fa-times"></i></button></div>';}).join(''):'<div style="color:var(--tx2);font-size:12px;padding:8px">Sin destinatarios. Agrega desde la DB o manualmente.</div>')
-    +'</div>'
+    +'<div style="margin-top:12px"><label id="nfDestLabel" style="font-weight:600;display:block;margin-bottom:8px"><i class="fas fa-users"></i> Destinatarios ('+dests.length+')</label>'
+    +'<div id="nfDestList" style="max-height:150px;overflow-y:auto;margin-bottom:8px"></div>'
     +'<div style="display:flex;gap:8px"><input class="fc" id="nfNum" placeholder="+502 XXXX-XXXX" style="flex:1"><input class="fc" id="nfNom" placeholder="Nombre" style="flex:1"><button class="btn btn-in btn-sm" onclick="addDest()"><i class="fas fa-plus"></i> Agregar</button></div></div>';
   openModal(id?'Editar Notificacion':'Nueva Notificacion',body,mFoot(id?"saveNotif('"+id+"')":'saveNotif()',id?'Actualizar':'Guardar'));
-  setTimeout(function(){nfFreqChange();},100);
+  setTimeout(function(){nfFreqChange();renderDestList();},100);
 }
 function nfFreqChange(){
   var f=g('nfFreq');document.getElementById('nfDiaS').style.display=f==='semanal'?'block':'none';
   document.getElementById('nfDiaM').style.display=f==='mensual'?'block':'none';
 }
+function renderDestList(){
+  var el=document.getElementById('nfDestList');if(!el)return;
+  if(!_notifDest.length){el.innerHTML='<div style="color:var(--tx2);font-size:12px;padding:8px">Sin destinatarios. Agrega desde la DB o manualmente.</div>';return;}
+  el.innerHTML=_notifDest.map(function(d,i){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:#f8f9fe;border-radius:6px;margin:4px 0;font-size:13px"><span><b>'+esc(d.nombre||'')+'</b> '+esc(d.numero||'')+'</span><button class="ab-btn ab-del" style="padding:2px 6px;font-size:11px" onclick="removeDest('+i+')"><i class="fas fa-times"></i></button></div>';
+  }).join('');
+}
 function addDest(){
   var num=(g('nfNum')||'').replace(/[^0-9]/g,'');var nom=g('nfNom')||'';
   if(!num||num.length<8){toast('Numero valido requerido','wa');return;}
-  _notifDest.push({numero:num,nombre:nom});document.getElementById('nfNum').value='';document.getElementById('nfNom').value='';
-  editNotif(null);if(_notifsData.length){var ci=document.getElementById('nfFreq');if(ci)editNotif(parseInt(ci.getAttribute('data-id'))||null);}
+  var yaExiste=_notifDest.some(function(d){return d.numero===num;});
+  if(yaExiste){toast('Este numero ya esta agregado','wa');return;}
+  _notifDest.push({numero:num,nombre:nom});
+  document.getElementById('nfNum').value='';document.getElementById('nfNom').value='';
+  renderDestList();
+  var lbl=document.querySelector('#nfDestLabel');if(lbl)lbl.innerHTML='<i class="fas fa-users"></i> Destinatarios ('+_notifDest.length+')';
 }
-function removeDest(i){_notifDest.splice(i,1);editNotif(null);}
+function removeDest(i){_notifDest.splice(i,1);renderDestList();var lbl=document.querySelector('#nfDestLabel');if(lbl)lbl.innerHTML='<i class="fas fa-users"></i> Destinatarios ('+_notifDest.length+')';}
 function saveNotif(id){
   var t=g('nfTitulo'),m=g('nfMensaje'),f=g('nfFreq'),h=g('nfHora'),a=g('nfActivo')==='1';
   var ds=parseInt(g('nfDiaSemana')),dm=parseInt(g('nfDiaMes'));
@@ -4855,15 +4864,25 @@ function syncContactosWhatsapp(){
     var data=(res&&res.data)||[];
     var el=document.getElementById('notifDests');if(!el)return;
     if(!data.length){el.innerHTML='<div class="empty-r"><p>Sin contactos con WhatsApp</p></div>';return;}
-    _notifDest=data;
-    el.innerHTML=data.map(function(d,i){
-      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:#f8f9fe;border-radius:6px;margin:4px 0;font-size:13px;cursor:pointer" onclick="toggleDest('+i+','+(d._sel?'true':'false')+')">'
-        +'<span><b>'+esc(d.nombre||'')+'</b> <span style="color:var(--tx2);font-size:11px">'+esc(d.numero||'')+'</span></span>'
-        +'<span class="bdg bb" style="font-size:10px">'+esc(d.tipo||'')+'</span>'
-        +'</div>';
-    }).join('');
-    toast(data.length+' contactos sincronizados','ok');
+    el.innerHTML='<div style="font-size:12px;color:var(--tx2);margin-bottom:8px">Click para agregar/quitar de la notificacion actual</div>'
+      +data.map(function(d,i){
+        var enNotif=_notifDest.some(function(x){return x.numero===d.numero;});
+        return '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 8px;background:'+(enNotif?'#ecfdf5':'#f8f9fe')+';border-radius:6px;margin:4px 0;font-size:13px;cursor:pointer" onclick="toggleContactoDest('+i+',this)">'
+          +'<span><b>'+esc(d.nombre||'')+'</b> <span style="color:var(--tx2);font-size:11px">'+esc(d.numero||'')+'</span></span>'
+          +'<span class="bdg '+(enNotif?'bg':'bb')+'" style="font-size:10px">'+(enNotif?'Agregado':'+ Agregar')+'</span>'
+          +'</div>';
+      }).join('');
+    window._contactosSync=data;
+    toast(data.length+' contactos cargados desde la DB','ok');
   });
+}
+function toggleContactoDest(i,el){
+  var c=window._contactosSync[i];if(!c)return;
+  var idx=_notifDest.findIndex(function(x){return x.numero===c.numero;});
+  if(idx>=0){_notifDest.splice(idx,1);}else{_notifDest.push({numero:c.numero,nombre:c.nombre||''});}
+  renderDestList();
+  var lbl=document.querySelector('#nfDestLabel');if(lbl)lbl.innerHTML='<i class="fas fa-users"></i> Destinatarios ('+_notifDest.length+')';
+  syncContactosWhatsapp();
 }
 function testNotif(){
   var num=(g('notifTestNum')||'').replace(/[^0-9]/g,'');
