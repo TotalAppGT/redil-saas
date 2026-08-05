@@ -6,7 +6,7 @@ logger = logging.getLogger("whatsapp_utils")
 
 WHATSAPP_TOKEN = os.getenv("WHATSAPP_TOKEN", "EAATUvL0iC3cBSNsEmoNdwUmKBu3ZBaFhMES58Ym2onRFKMF8DwzZCe9O3N5YJDtlfHjnBYYbZBY1QBY2UnUAiO5wP6KAOwXKz500tAZApd0eHiLOVdHu7PFCmptpuWYEg4xXiib2MfhZB1cwQZAexBteGrxX8ZBlVfpAdZBq3TltNL4mekJbu2p8wNukEyT53gZDZD")
 WHATSAPP_PHONE_ID = os.getenv("WHATSAPP_PHONE_ID", "1178159198722196")
-WHATSAPP_TEMPLATE = os.getenv("WHATSAPP_TEMPLATE", "alerta_totalappgt")
+WHATSAPP_TEMPLATE = os.getenv("WHATSAPP_TEMPLATE", "totalappgt_aviso")
 WHATSAPP_TEMPLATE_LANG = os.getenv("WHATSAPP_TEMPLATE_LANG", "es_MX")
 WHATSAPP_API = f"https://graph.facebook.com/v22.0/{WHATSAPP_PHONE_ID}/messages" if WHATSAPP_PHONE_ID else ""
 
@@ -268,10 +268,21 @@ def send_whatsapp_template(to_number, template_name=None, params=None, internal_
             "template": {"name": tname, "language": {"code": WHATSAPP_TEMPLATE_LANG}}
         }
         if params:
-            body["template"]["components"] = [{
-                "type": "body",
-                "parameters": [{"type": "text", "text": str(p)} for p in params]
-            }]
+            if tname == "totalappgt_aviso":
+                if len(params) < 2:
+                    return {"ok": False, "msg": "totalappgt_aviso requiere 2 parametros (sistema, mensaje)"}
+                body["template"]["components"] = [{
+                    "type": "body",
+                    "parameters": [
+                        {"type": "text", "text": str(params[0]), "parameter_name": "sistema"},
+                        {"type": "text", "text": str(params[1]), "parameter_name": "mensaje"}
+                    ]
+                }]
+            else:
+                body["template"]["components"] = [{
+                    "type": "body",
+                    "parameters": [{"type": "text", "text": str(p)} for p in params]
+                }]
         resp = httpx.post(
             WHATSAPP_API,
             json=body,
