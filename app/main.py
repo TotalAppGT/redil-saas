@@ -283,7 +283,8 @@ def _procesar_notificaciones_pendientes():
             from app.email_utils import send_email
             db = SessionLocal()
             try:
-                ahora = datetime.utcnow()
+                ahora_utc = datetime.utcnow()
+                ahora = ahora_utc - timedelta(hours=6)  # Guatemala UTC-6
                 notifs = db.query(Notificacion).filter(Notificacion.activo == True).all()
                 for n in notifs:
                     hora_e = str(n.hora_envio or "08:00")
@@ -312,15 +313,17 @@ def _procesar_notificaciones_pendientes():
                     if not dests:
                         continue
                     wa_links = [d.get("walink", "") for d in dests if d.get("walink")]
-                    msg_wa = _construir_mensaje_notificacion(
+                    msg_raw = _construir_mensaje_notificacion(
                         n.tipo or "general", n.titulo, n.mensaje,
                         n.evento, n.lugar, n.hora_evento, n.info_extra,
                         cita_biblica=n.cita_biblica, fecha_evento=n.fecha_evento
                     )
+                    msg_wa = msg_raw.replace("\n", "  |  ")
                     if wa_links:
                         msg_wa += " | " + " | ".join(wa_links[:2])
                     for d in dests:
-                        num = str(d.get("numero", "") or "").replace("+", "").replace(" ", "").replace("-", "")
+                        raw_num = str(d.get("numero", "") or "").replace("+", "").replace(" ", "").replace("-", "")
+                        num = ("502"+raw_num if len(raw_num)==8 and raw_num.isdigit() and not raw_num.startswith("502") else raw_num)
                         email = str(d.get("email", "") or d.get("correo", "") or "").strip()
                         grupo_id = str(d.get("grupo_id", "") or d.get("gid", "") or "").strip()
                         canal = str(d.get("canal") or "").lower()
@@ -351,7 +354,7 @@ def _procesar_notificaciones_pendientes():
                         if quier_email and email:
                             try:
                                 subject = f"Iglesia Restauracion - {n.titulo or 'Notificacion'}"
-                                html = _construir_html_notificacion(n, msg_wa)
+                                html = _construir_html_notificacion(n, msg_raw)
                                 send_email([email], subject, html)
                                 log_estado = "enviado"
                                 log_error = ""

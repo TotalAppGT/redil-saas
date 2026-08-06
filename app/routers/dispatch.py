@@ -11,6 +11,7 @@ import jwt
 import bcrypt
 import os
 import json
+import base64
 import requests
 from datetime import datetime, timedelta
 from dateutil import parser as dateparser
@@ -27,6 +28,10 @@ def pdf_safe(s):
     """Convierte texto a latin-1 para fuentes core de fpdf2 (sin emojis ni unicode raro)."""
     return str(s or "").encode("latin-1", "replace").decode("latin-1")
 
+def _htmlesc(s):
+    """Escape HTML entities. Separada de esc() para evitar conflicto con variable local en dispatch()."""
+    return str(s or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
+
 def _formatear_whatsapp(msg, pdf_url=""):
     sep = " | "
     from datetime import datetime
@@ -37,52 +42,70 @@ def _formatear_whatsapp(msg, pdf_url=""):
         return f"\U0001f4ca \U0001f4c4 {msg}{sep}\U0001f4c5 {fecha}"
     return f"\U0001f514 {msg}{sep}\U0001f4c5 {fecha}"
 
-def _construir_mensaje_notificacion(tipo, titulo, mensaje, evento, lugar, hora_evento, info_extra, cita_biblica=None, fecha_evento=None):
-    """Construye el cuerpo del mensaje según el tipo. El titulo de la iglesia lo pone
-    la plantilla ({{sistema}} = Iglesia Restauracion); aqui se envian los DETALLES."""
+def _fmt_fecha(fecha_str):
+    """2026-08-15 -> Viernes 15/08/2026"""
     from datetime import datetime
+    DIAS = ["Lunes","Martes","Miercoles","Jueves","Viernes","Sabado","Domingo"]
+    MESES = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"]
+    try:
+        parts = fecha_str.strip().split("-")
+        if len(parts) == 3:
+            y, m, d = int(parts[0]), int(parts[1]), int(parts[2])
+            dt = datetime(y, m, d)
+            return f"{DIAS[dt.weekday()]} {d} de {MESES[m-1]}"
+    except: pass
+    return fecha_str
+
+def _fmt_hora(hora_str):
+    """19:00 -> 7:00 PM"""
+    try:
+        h_str = hora_str.strip()
+        parts = h_str.split(":")
+        h, m = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
+        ampm = "AM" if h < 12 else "PM"
+        h12 = h % 12 or 12
+        return f"{h12}:{m:02d} {ampm}"
+    except: pass
+    return hora_str
+
+def _construir_mensaje_notificacion(tipo, titulo, mensaje, evento, lugar, hora_evento, info_extra, cita_biblica=None, fecha_evento=None):
+    """Construye el cuerpo del mensaje segun el tipo. El titulo de la iglesia lo pone
+    la plantilla ({{sistema}} = Iglesia Restauracion); aqui se envian los DETALLES."""
     tipo = (tipo or "general").lower()
     titulo = (titulo or "").strip()
     mensaje = (mensaje or "").strip()
     evento = (evento or "").strip()
     lugar = (lugar or "").strip()
-    hora_evento = (hora_evento or "").strip()
+    hora_evento = _fmt_hora(hora_evento) if hora_evento else ""
     info_extra = (info_extra or "").strip()
-    cita_biblica = (cita_biblica or "").strip()
-    fecha_evento = (fecha_evento or "").strip()
-    ahora = datetime.now()
-    fecha_hoy = ahora.strftime("%d/%m/%Y")
-    DIAS = ["Lunes","Martes","Miércoles","Jueves","Viernes","Sábado","Domingo"]
-    dia_nombre = DIAS[ahora.weekday()]
+    fecha_evento = _fmt_fecha(fecha_evento) if fecha_evento else ""
 
     lineas = []
 
     if tipo == "recordatorio":
         lineas.append(f"*{titulo or 'Recordatorio'}*")
-        lineas.append("Te recordamos el siguiente compromiso:")
-        if fecha_evento: lineas.append(f"\U0001f4c6 Día: {fecha_evento}")
-        if hora_evento: lineas.append(f"\U0001f550 Horario: {hora_evento}")
-        if lugar: lineas.append(f"\U0001f3db Lugar: {lugar}")
-        if evento: lineas.append(f"\U0001f4cb Detalle: {evento}")
+        if fecha_evento: lineas.append(f"\U0001f4c5 Fecha: {fecha_evento}")
+        if hora_evento: lineas.append(f"\U0001f550 Hora: {hora_evento}")
+        if lugar: lineas.append(f"\U0001f4cd Lugar: {lugar}")
+        if evento: lineas.append(f"\U0001f4cb {evento}")
         if mensaje: lineas.append(mensaje)
     elif tipo == "reunion":
-        lineas.append(f"*{titulo or 'Reunión'}*")
-        lineas.append("\U0001f465 Te invitamos cordialmente a nuestra reunión.")
-        if fecha_evento: lineas.append(f"\U0001f4c6 Día: {fecha_evento}")
-        if hora_evento: lineas.append(f"\U0001f550 Horario: {hora_evento}")
-        if lugar: lineas.append(f"\U0001f3db Lugar: {lugar}")
+        lineas.append(f"*{titulo or 'Reunion'}*")
+        if fecha_evento: lineas.append(f"\U0001f4c5 Fecha: {fecha_evento}")
+        if hora_evento: lineas.append(f"\U0001f550 Hora: {hora_evento}")
+        if lugar: lineas.append(f"\U0001f4cd Lugar: {lugar}")
         if mensaje: lineas.append(mensaje)
     elif tipo == "aviso":
         lineas.append(f"*{titulo or 'Comunicado'}*")
         if mensaje: lineas.append(mensaje)
-        if evento: lineas.append(f"\U0001f4c6 {evento}")
+        if evento: lineas.append(f"\U0001f4c5 {evento}")
         if hora_evento: lineas.append(f"\U0001f550 {hora_evento}")
-        if lugar: lineas.append(f"\U0001f3db {lugar}")
+        if lugar: lineas.append(f"\U0001f4cd {lugar}")
     elif tipo == "reporte":
         lineas.append(f"*{titulo or 'Reporte'}*")
         if mensaje: lineas.append(mensaje)
         if info_extra: lineas.append(f"\U0001f4c4 {info_extra}")
-        lineas.append("\U0001f4ca Por favor revisa los detalles del reporte.")
+        lineas.append("\U0001f4ca Revisa los detalles del reporte.")
     elif tipo == "alerta":
         lineas.append(f"\U000026a0 *{titulo or 'Alerta'}*")
         if mensaje: lineas.append(mensaje)
@@ -90,21 +113,17 @@ def _construir_mensaje_notificacion(tipo, titulo, mensaje, evento, lugar, hora_e
     elif tipo == "ofrenda":
         lineas.append(f"*{titulo or 'Ofrenda'}*")
         if mensaje: lineas.append(mensaje)
-        if info_extra: lineas.append(f"\U0001f4b8 {info_extra}")
+        if info_extra: lineas.append(f"\U0001f4b0 {info_extra}")
     else:
-        lineas.append(f"*{titulo or 'Notificación'}*")
+        lineas.append(f"*{titulo or 'Notificacion'}*")
         if mensaje: lineas.append(mensaje)
-        if evento: lineas.append(f"\U0001f4c6 {evento}")
+        if evento: lineas.append(f"\U0001f4c5 {evento}")
         if hora_evento: lineas.append(f"\U0001f550 {hora_evento}")
-        if lugar: lineas.append(f"\U0001f3db {lugar}")
-
-    if cita_biblica:
-        lineas.append(f"\U0001f4d6 Cita bíblica: {cita_biblica}")
+        if lugar: lineas.append(f"\U0001f4cd {lugar}")
 
     if info_extra and tipo not in ("reporte", "alerta", "ofrenda"):
         lineas.append(info_extra)
 
-    lineas.append(f"\U0001f4c5 Enviado el {dia_nombre} {fecha_hoy}")
     lineas.append("\U0001f517 Ingresa al sistema: redilrestauracion.totalappgt.online")
     return "\n".join(lineas)
 
@@ -337,7 +356,7 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             if payload.get("codigo"):
                 q = q.filter(Reporte.codigo == payload["codigo"])
             reportes = q.order_by(Reporte.fecha.desc()).limit(500).all()
-            return [{"ID": r.id, "Codigo": r.codigo, "Lider": r.lider, "Fecha": str(r.fecha) if r.fecha else "", "Distrito": r.distrito, "Zona": r.zona, "Area": r.area, "Sector": r.sector, "Grupo": r.grupo, "Ofrenda Total": float(r.ofrenda_total or 0), "Ofrenda Recibida": r.ofrenda_recibida or "Pendiente", "Asistencia Grupo Familiar": r.asistencia or 0, "Hnos": r.hnos or 0, "Amigos": r.amigos or 0, "Niños": r.ninos or 0, "Tipo de Reporte": r.tipo_reporte or ""} for r in reportes]
+            return [{"ID": r.id, "Codigo": r.codigo, "Lider": r.lider, "Fecha": str(r.fecha) if r.fecha else "", "Distrito": r.distrito, "Zona": r.zona, "Area": r.area, "Sector": r.sector, "Grupo": r.grupo, "Ofrenda Total": float(r.ofrenda_total or 0), "Ofrenda Recibida": r.ofrenda_recibida or "Pendiente", "Asistencia Grupo Familiar": r.asistencia or 0, "Hnos": r.hnos or 0, "Amigos": r.amigos or 0, "Niños": r.ninos or 0, "Tipo de Reporte": r.tipo_reporte or "", "Origen": r.reporte_origen or "Fisico"} for r in reportes]
 
         if action == "saveReporte":
             return save_entity(db, Reporte, HERMANO_MAP, payload)
@@ -730,6 +749,8 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             reportes = reportes_q.all()
             codigos_reportados = set(r.codigo for r in reportes)
             data, total_lideres, entregaron, pendientes_c, ofrenda_total = [], 0, 0, 0, 0.0
+            # Agrupar por distrito
+            distritos = {}
             for h in lideres:
                 total_lideres += 1
                 reporto = h.codigo_lead in codigos_reportados
@@ -738,8 +759,123 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                 ofrenda_total += ofrenda
                 if reporto: entregaron += 1
                 else: pendientes_c += 1
-                data.append({"codigo": h.codigo_lead or "", "nombre": h.nombre or "", "tieneReporte": reporto, "ofrendaTotal": round(ofrenda, 2), "ofrendaRecibida": True if rpts and rpts[0].ofrenda_recibida not in ("Pendiente", "", None) else False, "pastorZona": h.pastor_zona or "", "supSector": h.sup_sector or ""})
-            return {"ok": True, "data": data, "totalLideres": total_lideres, "entregaron": entregaron, "pendientes": pendientes_c, "ofrendaTotal": round(ofrenda_total, 2)}
+                d = str(h.distrito or "?")
+                z = str(h.zona or "?")
+                item = {"codigo": h.codigo_lead or "", "nombre": h.nombre or "", "tieneReporte": reporto, "ofrendaTotal": round(ofrenda, 2), "ofrendaRecibida": True if rpts and rpts[0].ofrenda_recibida not in ("Pendiente", "", None) else False, "pastorZona": h.pastor_zona or "", "supSector": h.sup_sector or "", "distrito": d, "zona": z}
+                data.append(item)
+                if d not in distritos: distritos[d] = {"distrito": d, "totalLideres": 0, "entregaron": 0, "pendientes": 0, "ofrendaTotal": 0.0, "zonas": {}}
+                distritos[d]["totalLideres"] += 1
+                if reporto: distritos[d]["entregaron"] += 1
+                else: distritos[d]["pendientes"] += 1
+                distritos[d]["ofrendaTotal"] += ofrenda
+                if z not in distritos[d]["zonas"]: distritos[d]["zonas"][z] = {"zona": z, "totalLideres": 0, "entregaron": 0, "pendientes": 0, "ofrendaTotal": 0.0, "lideres": []}
+                distritos[d]["zonas"][z]["totalLideres"] += 1
+                if reporto: distritos[d]["zonas"][z]["entregaron"] += 1
+                else: distritos[d]["zonas"][z]["pendientes"] += 1
+                distritos[d]["zonas"][z]["ofrendaTotal"] += ofrenda
+                distritos[d]["zonas"][z]["lideres"].append(item)
+            # Convertir zonas de dict a lista ordenada
+            distritos_list = []
+            for dk in sorted(distritos.keys()):
+                dg = distritos[dk]
+                zonas_list = []
+                for zk in sorted(dg["zonas"].keys()):
+                    zg = dg["zonas"][zk]
+                    zg["ofrendaTotal"] = round(zg["ofrendaTotal"], 2)
+                    zonas_list.append(zg)
+                dg["zonas"] = zonas_list
+                dg["ofrendaTotal"] = round(dg["ofrendaTotal"], 2)
+                distritos_list.append(dg)
+            generar_pdf = payload.get("generarPDF", False)
+            result = {"ok": True, "data": data, "agrupado": distritos_list, "totalLideres": total_lideres, "entregaron": entregaron, "pendientes": pendientes_c, "ofrendaTotal": round(ofrenda_total, 2)}
+            if generar_pdf:
+                try:
+                    from fpdf import FPDF
+                    from datetime import datetime as dt2
+                    sys_nom = ""
+                    try:
+                        cfg2 = db.query(Configuracion).filter(Configuracion.clave == "nombre").first()
+                        if cfg2: sys_nom = cfg2.valor
+                    except: pass
+                    today_str = dt2.now().strftime('%Y%m%d')
+                    count = db.query(GeneradorReporte).filter(GeneradorReporte.no_serie.like(f'%cuadre_{today_str}%')).count() + 1
+                    no_serie = f"cuadre_{today_str}_{count:03d}"
+                    fecha_gen = dt2.now().strftime('%d/%m/%Y %I:%M %p')
+                    pdf = FPDF('L','mm','Letter'); pdf.set_auto_page_break(True,10); pdf.add_page(); pdf.set_margin(10)
+                    w=pdf.w-20; cx=10
+                    pdf.set_fill_color(26,58,92); pdf.rect(0,0,pdf.w,24,'F')
+                    pdf.set_text_color(255,255,255); pdf.set_font('Helvetica','B',16)
+                    pdf.set_xy(cx,4); pdf.cell(w*0.6,7,pdf_safe(sys_nom or'REDIL')[:35],0,0,'L')
+                    pdf.set_font('Helvetica','',8); pdf.set_text_color(185,205,230)
+                    pdf.set_xy(cx,13); pdf.cell(w*0.6,4,f'Cuadre Dominical - {fecha or "Hoy"} - {fecha_gen}',0,0,'L')
+                    bw,bh=58,14; bx=pdf.w-cx-bw; by=5
+                    pdf.set_fill_color(255,255,255); pdf.rect(bx,by,bw,bh,'F'); pdf.set_draw_color(26,58,92); pdf.rect(bx,by,bw,bh,'D')
+                    pdf.set_text_color(26,58,92); pdf.set_font('Helvetica','B',11)
+                    pdf.set_xy(bx,by+1); pdf.cell(bw,7,no_serie,0,0,'C')
+                    pdf.set_font('Helvetica','',7); pdf.set_text_color(100,115,135)
+                    pdf.set_xy(bx,by+8); pdf.cell(bw,4,f'{total_lideres} lideres',0,0,'C')
+                    # KPIs
+                    colors=[(99,102,241),(16,185,129),(239,68,68),(249,115,22)]
+                    kpi_data=[('Lideres',str(total_lideres)),('Entregaron',str(entregaron)),('Pendientes',str(pendientes_c)),('Ofrenda',pdf_safe(f'Q{ofrenda_total:,.2f}'))]
+                    cw4=(w-9)/4; ch4=18; gap=3; y0=29
+                    for i,(lbl,val) in enumerate(kpi_data):
+                        x=cx+i*(cw4+gap); y=y0
+                        pdf.set_fill_color(250,252,255); pdf.set_draw_color(220,228,240); pdf.rect(x,y,cw4,ch4,'DF')
+                        cr,cg,cb=colors[i]; pdf.set_fill_color(cr,cg,cb); pdf.rect(x+1,y+2,3,ch4-4,'F')
+                        pdf.set_text_color(cr,cg,cb); pdf.set_font('Helvetica','B',12)
+                        pdf.set_xy(x+7,y+2); pdf.cell(cw4-10,8,val,0,0,'L')
+                        pdf.set_font('Helvetica','',6.5); pdf.set_text_color(130,140,155)
+                        pdf.set_xy(x+7,y+11); pdf.cell(cw4-10,4,lbl.upper(),0,0,'L')
+                    # Table
+                    tbl_y=y0+ch4+10; rh=5
+                    cols=[('Codigo',18),('Lider',50),('D-Z',16),('Pastor Zona',42),('Sup.Sector',38),('Estado',24),('Ofrenda',22)]
+                    cw_list=[c[1] for c in cols]; ch_headers=[c[0] for c in cols]
+                    pdf.set_fill_color(26,58,92); pdf.set_text_color(255,255,255); pdf.set_font('Helvetica','B',7)
+                    pdf.set_y(tbl_y)
+                    for ci,cwv in enumerate(cw_list): pdf.set_xy(sum(cw_list[:ci])+cx,tbl_y); pdf.cell(cwv,6,ch_headers[ci],0,0,'C',True)
+                    y=tbl_y+6; max_rows=int((190-y)/rh)
+                    for ri,lid in enumerate(data):
+                        if ri>0 and ri%max_rows==0:
+                            pdf.add_page(); y=12; pdf.set_fill_color(26,58,92)
+                            pdf.set_y(y)
+                            for ci2,cwv2 in enumerate(cw_list): pdf.set_xy(sum(cw_list[:ci2])+cx,y); pdf.cell(cwv2,6,ch_headers[ci2],0,0,'C',True)
+                            y+=6
+                        pdf.set_fill_color(252,254,255) if ri%2==0 else pdf.set_fill_color(246,249,253)
+                        tiene=lid.get("tieneReporte",False); of_v=lid.get("ofrendaTotal",0)
+                        vals=[pdf_safe(lid.get("codigo","-"))[:8],pdf_safe(lid.get("nombre","-"))[:30],f'D{pdf_safe(lid.get("distrito","?"))} Z{pdf_safe(lid.get("zona","?"))}',pdf_safe(lid.get("pastorZona","-"))[:24],pdf_safe(lid.get("supSector","-"))[:22],'',f'Q{of_v:,.2f}' if of_v else '-']
+                        for vi,cwv3 in enumerate(cw_list):
+                            xpos=sum(cw_list[:vi])+cx
+                            if vi==5:
+                                if not tiene:
+                                    pdf.set_fill_color(254,238,238); pdf.set_draw_color(240,190,190); pdf.rect(xpos+1,y+0.5,cwv3-4,rh-1,'DF')
+                                    pdf.set_text_color(200,40,40)
+                                else:
+                                    pdf.set_fill_color(234,252,240); pdf.set_draw_color(175,225,195); pdf.rect(xpos+1,y+0.5,cwv3-4,rh-1,'DF')
+                                    pdf.set_text_color(5,150,105)
+                                pdf.set_font('Helvetica','B',6); pdf.set_xy(xpos,y)
+                                pdf.cell(cwv3,rh,'Pendiente'if not tiene else'Entregado',0,0,'C')
+                            else:
+                                pdf.set_text_color(50,60,75); pdf.set_xy(xpos,y); pdf.set_font('Helvetica','',6.5)
+                                pdf.cell(cwv3,rh,vals[vi],0,0,'L'if vi<2 else'C',True)
+                        y+=rh
+                    pdf.set_y(y+4); pdf.set_draw_color(180,195,215); pdf.set_line_width(0.4)
+                    pdf.line(cx,pdf.get_y(),pdf.w-cx,pdf.get_y())
+                    pdf.set_font('Helvetica','B',7.5); pdf.set_text_color(26,58,92)
+                    pdf.set_xy(cx,pdf.get_y()+2); pdf.cell(w*0.5,5,f'{total_lideres} lideres - Q{ofrenda_total:,.2f}',0,0,'L')
+                    pdf.set_font('Helvetica','',6.5); pdf.set_text_color(140,150,165)
+                    pdf.set_xy(cx,pdf.get_y()+6); pdf.cell(w,5,'Daniel Martinez - Total App GT',0,0,'R')
+                    pdf_b64 = base64.b64encode(pdf.output()).decode()
+                    gr = GeneradorReporte(
+                        no_serie=no_serie, fecha_inicio=fecha or None, fecha_fin=fecha or None,
+                        total_ofrenda=round(ofrenda_total,2), total_asistencia=total_lideres,
+                        titulo_reporte="Cuadre Dominical", archivo_generado=f"/api/pdf/{no_serie}"
+                    )
+                    gr.pdf_data = pdf_b64; db.add(gr); db.commit()
+                    result["pdfUrl"] = f"/api/pdf/{no_serie}"; result["pdfSerie"] = no_serie
+                except Exception as e:
+                    result["pdfError"] = str(e)
+                    print(f"PDF cuadre fallo: {e}")
+            return result
 
         # ── CARGA MASIVA ──
         if action == "getEncabezadosCargaMasiva":
@@ -1126,99 +1262,78 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                     )
                     db.add(gr)
                     db.commit()
-                    # Generar PDF profesional
+                    db.add(gr)
+                    db.commit()
                     try:
-                        from fpdf import FPDF; import base64, io; from datetime import datetime as dt2
-                        pdf = FPDF('L','mm','Letter'); pdf.set_auto_page_break(True,12)
-                        pdf.add_page(); pdf.set_margin(12)
-                        w=pdf.w-24; cx=12 # usable width, start x
-                        # ── HEADER ──
-                        pdf.set_fill_color(26,58,92); pdf.rect(0,0,pdf.w,28,'F')  # full-width blue
-                        pdf.set_draw_color(59,130,200); pdf.set_line_width(1.5)
-                        pdf.line(0,28,pdf.w,28)  # thin accent line
-                        # Left: name + subtitle
-                        pdf.set_text_color(255,255,255); pdf.set_font('Helvetica','B',18)
-                        pdf.set_xy(cx,6); pdf.cell(w*0.65,8,pdf_safe(sys_nom or'REDIL')[:40],0,0,'L')
-                        pdf.set_font('Helvetica','',9); pdf.set_text_color(200,215,240)
-                        pdf.set_xy(cx,16); pdf.cell(w*0.65,5,f'{pdf_safe(tipo)[:50]}  -  {pdf_safe(rango_str)}  -  {fecha_gen}',0,0,'L')
-                        # Right: ID badge
-                        pdf.set_fill_color(255,255,255); pdf.set_text_color(26,58,92)
-                        pdf.set_font('Helvetica','B',13); pdf.set_xy(pdf.w-75,5)
-                        pdf.cell(63,10,no_serie,0,0,'C',True)
-                        pdf.set_font('Helvetica','',8); pdf.set_text_color(26,58,92)
-                        pdf.set_xy(pdf.w-75,15.5); pdf.cell(63,5,f'{total_grupos} reportes',0,0,'C')
-                        # ── KPI CARDS (2 rows of 4) ──
-                        colors=[(99,102,241),(245,158,11),(16,185,129),(59,130,246),(239,68,68),(139,92,246),(20,184,166),(249,115,22)]
-                        data=[('Grupos',str(total_grupos)),('Asistencia',str(total_asist)),('Ofrenda',f'Q{total_ofrenda:,.2f}'),('% Recibidas',f'{estado_pct}%'),('Pendientes',str(total_pendientes)),('Hermanos',str(total_hnos)),('Amigos',str(total_amigos)),('Ninos',str(total_ninos))]
-                        card_w=(w-15)/4; card_h=19; gap=5; y0=33
-                        for i,(l,v) in enumerate(data):
-                            x=cx+(i%4)*(card_w+gap/2); y=y0+(i//4)*(card_h+gap/2)
-                            # Card bg
-                            pdf.set_fill_color(252,253,255); pdf.set_draw_color(230,235,245)
-                            pdf.rect(x,y,card_w,card_h,'DF')
-                            # Left accent bar
-                            cr,cg,cb=colors[i]; pdf.set_fill_color(cr,cg,cb)
-                            pdf.rect(x,y,3,card_h,'F')
-                            # Value
-                            pdf.set_text_color(cr,cg,cb); pdf.set_font('Helvetica','B',13)
-                            pdf.set_xy(x+6,y+2); pdf.cell(card_w-10,8,v,0,0,'L')
-                            # Label
-                            pdf.set_font('Helvetica','',7.5); pdf.set_text_color(130,140,155)
-                            pdf.set_xy(x+6,y+11); pdf.cell(card_w-10,5,l.upper(),0,0,'L')
-                        # ── TABLE ──
-                        tbl_y=y0+2*card_h+2*gap+2
-                        cols=[('Codigo',20),('Lider',52),('Fecha',22),('D-Z',19),('AGF',15),('Ofrenda',24),('Hnos',14),('Amg',14),('Estado',22)]
-                        cw2=[c[1] for c in cols]; ch=[c[0] for c in cols]
-                        # Dark header
-                        pdf.set_fill_color(26,58,92); pdf.set_text_color(255,255,255)
-                        pdf.set_font('Helvetica','B',7.5); pdf.set_y(tbl_y); x=cx
-                        for i,cw_val in enumerate(cw2): pdf.set_xy(x,tbl_y); pdf.cell(cw_val,7,ch[i],0,0,'C',True); x+=cw_val
-                        y=tbl_y+7; rh=5.8; max_rows=int((195-y)/rh)
+                        from fpdf import FPDF
+                        pdf = FPDF('L','mm','Letter'); pdf.set_auto_page_break(True,10)
+                        pdf.add_page(); pdf.set_margin(10)
+                        w=pdf.w-20; cx=10
+                        pdf.set_fill_color(26,58,92); pdf.rect(0,0,pdf.w,24,'F'); pdf.set_fill_color(18,48,78); pdf.rect(0,0,pdf.w,2,'F')
+                        pdf.set_text_color(255,255,255); pdf.set_font('Helvetica','B',16)
+                        pdf.set_xy(cx,4); pdf.cell(w*0.6,7,pdf_safe(sys_nom or'REDIL')[:35],0,0,'L')
+                        pdf.set_font('Helvetica','',8); pdf.set_text_color(185,205,230)
+                        pdf.set_xy(cx,13); pdf.cell(w*0.6,4,f'{pdf_safe(tipo)[:45]}  -  {rango_str}  -  {fecha_gen}',0,0,'L')
+                        bw,bh=58,14; bx=pdf.w-cx-bw; by=5
+                        pdf.set_fill_color(255,255,255); pdf.rect(bx,by,bw,bh,'F'); pdf.set_draw_color(26,58,92); pdf.set_line_width(0.3); pdf.rect(bx,by,bw,bh,'D')
+                        pdf.set_text_color(26,58,92); pdf.set_font('Helvetica','B',11)
+                        pdf.set_xy(bx,by+1); pdf.cell(bw,7,no_serie,0,0,'C')
+                        pdf.set_font('Helvetica','',7); pdf.set_text_color(100,115,135)
+                        pdf.set_xy(bx,by+8); pdf.cell(bw,4,f'{total_grupos} reportes',0,0,'C')
+                        colors=[(99,102,241),(16,185,129),(239,68,68),(249,115,22),(59,130,246),(139,92,246),(20,184,166),(245,158,11)]
+                        kpi_data=[('Grupos',str(total_grupos)),('Asistencia',str(total_asist)),('Ofrenda',pdf_safe(f'Q{total_ofrenda:,.2f}')),('Recibidas',f'{estado_pct}%'),('Pendientes',str(total_pendientes)),('Hermanos',str(total_hnos)),('Amigos',str(total_amigos)),('Ninos',str(total_ninos))]
+                        cw=(w-21)/4; ch=18; gap=7; y0=29
+                        for i,(lbl,val) in enumerate(kpi_data):
+                            x=cx+(i%4)*(cw+gap); y=y0+(i//4)*(ch+gap)
+                            pdf.set_fill_color(250,252,255); pdf.set_draw_color(220,228,240); pdf.rect(x,y,cw,ch,'DF')
+                            cr,cg,cb=colors[i]; pdf.set_fill_color(cr,cg,cb); pdf.set_draw_color(cr,cg,cb); pdf.rect(x+1,y+2,3,ch-4,'F')
+                            pdf.set_text_color(cr,cg,cb); pdf.set_font('Helvetica','B',12)
+                            pdf.set_xy(x+7,y+2); pdf.cell(cw-10,8,val,0,0,'L')
+                            pdf.set_font('Helvetica','',6.5); pdf.set_text_color(130,140,155)
+                            pdf.set_xy(x+7,y+11); pdf.cell(cw-10,4,lbl.upper(),0,0,'L')
+                        tbl_y=y0+2*ch+2*gap+8; rh=5.2
+                        pdf.set_fill_color(26,58,92); pdf.set_text_color(255,255,255); pdf.set_font('Helvetica','B',7)
+                        cols=[('Codigo',18),('Lider',48),('Fecha',20),('Dist-Zona',18),('AGF',14),('Ofrenda',20),('Hnos',12),('Amg',12),('Estado',28)]
+                        cw_list=[c[1] for c in cols]; ch_headers=[c[0] for c in cols]
+                        pdf.set_y(tbl_y)
+                        for ci,cwv in enumerate(cw_list): pdf.set_xy(sum(cw_list[:ci])+cx,tbl_y); pdf.cell(cwv,6,ch_headers[ci],0,0,'C',True)
+                        y=tbl_y+6; max_rows=int((190-y)/rh)
                         for ri,r in enumerate(reportes):
                             if ri>0 and ri%max_rows==0:
-                                pdf.add_page(); y=12
-                                pdf.set_fill_color(26,58,92); pdf.set_text_color(255,255,255)
-                                pdf.set_font('Helvetica','B',7.5); pdf.set_y(y); x=cx
-                                for i2,cw_val2 in enumerate(cw2): pdf.set_xy(x,y); pdf.cell(cw_val2,7,ch[i2],0,0,'C',True); x+=cw_val2
-                                y+=7
-                            pdf.set_fill_color(252,254,255) if ri%2==0 else pdf.set_fill_color(247,250,254)
+                                pdf.add_page(); y=12; pdf.set_fill_color(26,58,92)
+                                pdf.set_y(y)
+                                for ci2,cwv2 in enumerate(cw_list): pdf.set_xy(sum(cw_list[:ci2])+cx,y); pdf.cell(cwv2,6,ch_headers[ci2],0,0,'C',True)
+                                y+=6
+                            pdf.set_fill_color(252,254,255) if ri%2==0 else pdf.set_fill_color(246,249,253)
                             pend=r.ofrenda_recibida in("Pendiente",""); of_v=float(r.ofrenda_total or 0)
-                            vals=[pdf_safe(r.codigo or'-')[:10],pdf_safe(r.lider or'-')[:30],str(r.fecha)[:10]if r.fecha else'-',f'D{pdf_safe(r.distrito or"?")} Z{pdf_safe(r.zona or"?")}',str(r.asistencia or 0),f'Q{of_v:,.2f}',str(r.hnos or 0),str(r.amigos or 0),'']
-                            # Row bg
-                            pdf.set_font('Helvetica','',7.5); x=cx
-                            for vi,cw_val3 in enumerate(cw2):
-                                pdf.set_xy(x,y); align='L'if vi<2 else'C'
+                            vals=[pdf_safe(r.codigo or'-')[:10],pdf_safe(r.lider or'-')[:28],str(r.fecha)[:10]if r.fecha else'-',f'D{pdf_safe(r.distrito or"?")} Z{pdf_safe(r.zona or"?")}',str(r.asistencia or 0),f'Q{of_v:,.2f}',str(r.hnos or 0),str(r.amigos or 0),'']
+                            for vi,cwv3 in enumerate(cw_list):
+                                xpos=sum(cw_list[:vi])+cx
                                 if vi==8:
                                     if pend:
+                                        pdf.set_fill_color(254,238,238); pdf.set_draw_color(240,190,190); pdf.rect(xpos+1,y+0.5,cwv3-4,rh-1,'DF')
                                         pdf.set_text_color(200,40,40)
-                                        ww=pdf.get_string_width('Pendiente')+6
-                                        pdf.set_fill_color(254,242,242); pdf.set_draw_color(240,200,200)
-                                        pdf.set_xy(x,y); pdf.cell(cw_val3,rh,'','DF',0,'C',True)
-                                        pdf.set_xy(x,y); pdf.cell(cw_val3,rh,'Pendiente',0,0,'C')
                                     else:
+                                        pdf.set_fill_color(234,252,240); pdf.set_draw_color(175,225,195); pdf.rect(xpos+1,y+0.5,cwv3-4,rh-1,'DF')
                                         pdf.set_text_color(5,150,105)
-                                        ww2=pdf.get_string_width('Recibida')+6
-                                        pdf.set_fill_color(236,253,245); pdf.set_draw_color(180,230,200)
-                                        pdf.set_xy(x,y); pdf.cell(cw_val3,rh,'','DF',0,'C',True)
-                                        pdf.set_xy(x,y); pdf.cell(cw_val3,rh,'Recibida',0,0,'C')
+                                    pdf.set_font('Helvetica','B',6.5); pdf.set_xy(xpos,y)
+                                    pdf.cell(cwv3,rh,'Pendiente'if pend else'Recibida',0,0,'C')
                                 else:
-                                    pdf.set_xy(x,y); pdf.set_text_color(50,60,75)
-                                    pdf.cell(cw_val3,rh,vals[vi],0,0,align,True)
-                                x+=cw_val3
+                                    pdf.set_text_color(50,60,75); pdf.set_xy(xpos,y); pdf.set_font('Helvetica','',7)
+                                    pdf.cell(cwv3,rh,vals[vi],0,0,'L'if vi<2 else'C',True)
                             y+=rh
-                        # ── FOOTER ──
-                        pdf.set_y(y+4); pdf.set_draw_color(59,130,200); pdf.set_line_width(.6)
+                        pdf.set_y(y+4); pdf.set_draw_color(180,195,215); pdf.set_line_width(0.4)
                         pdf.line(cx,pdf.get_y(),pdf.w-cx,pdf.get_y())
-                        pdf.set_font('Helvetica','B',8); pdf.set_text_color(26,58,92)
-                        pdf.set_xy(cx,pdf.get_y()+2); pdf.cell(w*0.5,6,f'{total_grupos} reportes  -  Q{total_ofrenda:,.2f}',0,0,'L')
-                        pdf.set_font('Helvetica','',7); pdf.set_text_color(140,150,165)
-                        pdf.set_xy(cx,pdf.get_y()+7); pdf.cell(w,5,'Daniel Martinez  -  Total App GT',0,0,'R')
-                        buf=io.BytesIO(); pdf.output(buf); pdf_b64=base64.b64encode(buf.getvalue()).decode()
+                        pdf.set_font('Helvetica','B',7.5); pdf.set_text_color(26,58,92)
+                        pdf.set_xy(cx,pdf.get_y()+2); pdf.cell(w*0.5,5,f'{total_grupos} reportes  -  Q{total_ofrenda:,.2f}',0,0,'L')
+                        pdf.set_font('Helvetica','',6.5); pdf.set_text_color(140,150,165)
+                        pdf.set_xy(cx,pdf.get_y()+6); pdf.cell(w,5,'Daniel Martinez  -  Total App GT',0,0,'R')
+                        pdf_b64 = base64.b64encode(pdf.output()).decode()
                         gr.pdf_data=pdf_b64; gr.archivo_generado=f"/api/pdf/{no_serie}"; db.commit()
                         result["pdfUrl"]=f"/api/pdf/{no_serie}"; result["pdfStatus"]="PDF listo"
                     except Exception as e:
                         result["pdfError"]=str(e)
-                        print(f"PDF generarReporte falló ({no_serie}): {e}")
+                        print(f"PDF fallo ({no_serie}): {e}")
                 except: pass
             return result
 
@@ -1233,6 +1348,8 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             nums = [n.strip() for n in to_num.split(",") if n.strip()] if to_num and "," in to_num else [to_num] if to_num else []
             if not nums:
                 return {"ok": False, "msg": "Número requerido"}
+            # Normalizar numeros: 8 digitos -> 502XXXXXXXX
+            nums = [("502"+n if len(n.replace("+","").replace(" ",""))==8 and not n.startswith("+") and not n.startswith("502") else n) for n in nums]
             if forzar_texto:
                 result = send_whatsapp_bulk(nums, msg) if len(nums) > 1 else send_whatsapp(nums[0], msg)
             else:
@@ -1248,10 +1365,14 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             numbers = payload.get("numeros", [])
             msg = payload.get("mensaje", "")
             pdf_url = payload.get("pdfUrl", "")
-            forzar_texto = payload.get("usarPlantilla") == False
+            forzar_texto_raw = payload.get("usarPlantilla") == False
             if not numbers or not msg:
                 return {"ok": False, "msg": "Números y mensaje requeridos"}
-            if forzar_texto:
+            # Si hay PDF, SIEMPRE enviar como documento (la plantilla no soporta adjuntos)
+            forzar = forzar_texto_raw or bool(pdf_url and pdf_url.strip())
+            # Normalizar numeros: 8 digitos -> 502XXXXXXXX
+            numbers = [("502"+n if len(str(n).replace("+","").replace(" ",""))==8 and not str(n).startswith("+") and not str(n).startswith("502") else str(n)) for n in numbers]
+            if forzar:
                 return send_whatsapp_bulk(numbers, msg, pdf_url if pdf_url else None)
             texto_wa = _formatear_whatsapp(msg, pdf_url)
             results = [send_whatsapp_template(n, params=["Iglesia Restauracion", texto_wa]) for n in numbers]
@@ -1348,21 +1469,32 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             from app.email_utils import send_email
             from datetime import datetime as dt
             from app.models import NotificacionLog
-            numero = str(payload.get("numero", "") or "").replace("+", "").replace(" ", "")
+            numero = str(payload.get("numero", "") or "").replace("+", "").replace(" ", "").replace("-", "")
+            if len(numero) == 8 and numero.isdigit() and not numero.startswith("502"):
+                numero = "502" + numero
             email = str(payload.get("email", "") or "").strip()
-            mensaje = payload.get("mensaje", "")
+            tipo = str(payload.get("tipo", "") or "general").lower()
             titulo = payload.get("titulo", "")
+            mensaje = payload.get("mensaje", "")
+            evento = str(payload.get("evento", "") or "").strip()
+            lugar = str(payload.get("lugar", "") or "").strip()
+            hora_evento = str(payload.get("hora_evento", "") or "").strip()
+            fecha_evento = str(payload.get("fecha_evento", "") or "").strip()
+            cita_biblica = str(payload.get("cita_biblica", "") or "").strip()
+            info_extra = str(payload.get("info_extra", "") or "").strip()
             canal = str(payload.get("canal", "") or "whatsapp").lower()
+            msg_construido = _construir_mensaje_notificacion(
+                tipo, titulo, mensaje, evento, lugar, hora_evento, info_extra,
+                cita_biblica=cita_biblica, fecha_evento=fecha_evento
+            )
             if canal in ("correo", "email"):
-                if not email or not mensaje:
+                if not email or not msg_construido:
                     return {"ok": False, "msg": "Correo y mensaje requeridos"}
-                fecha = dt.now().strftime("%d/%m/%Y")
-                msg_wa = f"\U0001f4e2 {titulo + ' - ' if titulo else ''}{mensaje}  \U0001f4c5 {fecha}"
                 try:
-                    esc = lambda s: (s or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
-                    html = '<div style="font-family:sans-serif;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden">'
+                    lineas_html = "".join(f'<div style="margin-bottom:8px">{_htmlesc(l)}</div>' for l in msg_construido.split("\n"))
+                    html = '<div style="font-family:sans-serif;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;max-width:520px">'
                     html += '<div style="background:linear-gradient(135deg,#1a3a5c,#2563a8);color:#fff;padding:20px"><b style="font-size:18px">Iglesia Restauracion</b><div style="font-size:13px;opacity:.9">Restaurando vidas y familias</div></div>'
-                    html += '<div style="padding:22px"><h2 style="color:#1a3a5c">'+esc(titulo or "Prueba")+'</h2><p style="color:#374151;line-height:1.6">'+esc(msg_wa).replace("\n","<br>")+'</p></div></div>'
+                    html += '<div style="padding:22px">'+lineas_html+'</div></div>'
                     send_email([email], f"Iglesia Restauracion - {titulo or 'Notificacion'}", html)
                     estado = "enviado"
                     destino = email
@@ -1377,11 +1509,9 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                 ))
                 db.commit()
                 return res
-            if not numero or not mensaje:
+            if not numero or not msg_construido:
                 return {"ok": False, "msg": "Numero y mensaje requeridos"}
-            fecha = dt.now().strftime("%d/%m/%Y")
-            msg_wa = f"\U0001f4e2 {titulo + ' - ' if titulo else ''}{mensaje}  \U0001f4c5 {fecha}"
-            resp = send_whatsapp_template(numero, params=["Iglesia Restauracion", msg_wa])
+            resp = send_whatsapp_template(numero, params=["Iglesia Restauracion", msg_construido.replace("\n", "  |  ")])
             db.add(NotificacionLog(
                 notificacion_id=0, titulo=titulo, destino=numero, canal="whatsapp",
                 wamid=resp.get("wamid", ""),

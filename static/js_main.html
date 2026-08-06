@@ -1217,9 +1217,10 @@ function renderRepTable(){
   }
   tb.innerHTML=data.map(r=>{
     const isPend=r['Ofrenda Recibida']==='Pendiente'||r['Ofrenda Recibida']==='';
-    var metodo=r['Reporte']||(r['Tipo de Reporte']==='Reporte Digital'?'Digital':r['Tipo de Reporte']==='Reporte Físico'?'Físico':'');
+    var origen=r['Origen']||(r['reporte_origen']||'Fisico');
     var reunionTipo=r['Tipo de Reporte']||'';
-    if(reunionTipo==='Reporte Digital'||reunionTipo==='Reporte Físico')reunionTipo='Mixta (Reunión Regular)';
+    if(reunionTipo==='Reporte Digital'||reunionTipo==='Reporte Fisico')reunionTipo='Mixta (Reunion Regular)';
+    var origBadge=origen==='Digital'?'<span class="bdg bi">Digital</span>':'<span class="bdg bb">Fisico</span>';
     return `<tr style="${isPend?'background:#fff5f5;':''}">
     <td>${fmtD(r['Fecha'])}</td>
     <td><span class="bdg bb">${esc(r['Codigo'])}</span></td>
@@ -1231,7 +1232,7 @@ function renderRepTable(){
     <td>${r['Ofrenda Iglesia']||''}</td><td>${r['Ofrenda Bus']||''}</td>
     <td><b>${r['Ofrenda Total']||''}</b></td>
     <td>${r['Total']||0}</td>
-    <td><span class="bdg ${metodo==='Digital'?'bi':'bb'}">${metodo||'—'}</span><br><span style="font-size:10px;color:var(--tx2)">${esc(reunionTipo)}</span></td>
+    <td>${origBadge}<br><span style="font-size:10px;color:var(--tx2)">${esc(reunionTipo)}</span></td>
     <td>${isPend
       ?`<button class="btn btn-ok btn-sm" style="font-size:11px;white-space:nowrap;padding:5px 10px" onclick="confirmarOfrendaRapido('${esc(r['ID'])}','${esc(r['Lider'])}')"><i class="fas fa-check-circle"></i> Marcar Recibida</button>`
       :`<span class="bdg bg" style="font-size:11px">✓ Recibida</span>`
@@ -4879,7 +4880,7 @@ function editNotif(id){
   var body='<div class="fg2">'
     +'<div class="fgg full"><label>Titulo</label><input class="fc" id="nfTitulo" value="'+esc(n.titulo||'')+'" placeholder="Ej: Reunion de Lideres"></div>'
     +'<div class="fgg"><label>Tipo</label><select class="fc" id="nfTipo" onchange="nfTipoChange()">'+Object.keys(tipos).map(function(k){return '<option value="'+k+'"'+(n.tipo===k?' selected':'')+'>'+tipos[k]+'</option>';}).join('')+'</select></div>'
-    +'<div id="nfFieldsEvento" style="display:'+(n.tipo==='recordatorio'||n.tipo==='reunion'?'block':'none')+'"><div class="fgg"><label>Evento</label><input class="fc" id="nfEvento" value="'+esc(n.evento||'')+'" placeholder="Nombre del evento"></div><div class="row2"><div class="fgg"><label>Fecha del evento</label><input class="fc" type="date" id="nfFechaEvento" value="'+esc(n.fecha_evento||'')+'"></div><div class="fgg"><label>Hora del evento</label><input class="fc" type="time" id="nfHoraEvento" value="'+esc(n.hora_evento||'')+'"></div></div><div class="fgg"><label>Lugar</label><input class="fc" id="nfLugar" value="'+esc(n.lugar||'')+'" placeholder="Iglesia Central"></div></div>'
+    +'<div id="nfFieldsEvento" style="display:block"><div class="fgg"><label>Evento</label><input class="fc" id="nfEvento" value="'+esc(n.evento||'')+'" placeholder="Nombre del evento"></div><div class="row2"><div class="fgg"><label>Fecha del evento</label><input class="fc" type="date" id="nfFechaEvento" value="'+esc(n.fecha_evento||'')+'"></div><div class="fgg"><label>Hora del evento</label><input class="fc" type="time" id="nfHoraEvento" value="'+esc(n.hora_evento||'')+'"></div></div><div class="fgg"><label>Lugar</label><input class="fc" id="nfLugar" value="'+esc(n.lugar||'')+'" placeholder="Iglesia Central"></div></div>'
     +'<div id="nfFieldsMensaje"><div class="fgg full"><label>Mensaje</label><textarea class="fc" id="nfMensaje" rows="3" placeholder="Contenido del mensaje...">'+esc(n.mensaje||'')+'</textarea></div></div>'
     +'<div class="row2"><div class="fgg"><label>Cita biblica (opcional)</label><input class="fc" id="nfCita" value="'+esc(n.cita_biblica||'')+'" placeholder="Juan 3:16"></div>'
     +'<div class="fgg"><label>Info extra</label><input class="fc" id="nfInfoExtra" value="'+esc(n.info_extra||'')+'" placeholder="Telefono, datos adicionales..."></div></div>'
@@ -4951,8 +4952,8 @@ function nfFreqChange(){
   document.getElementById('nfDiaM').style.display=f==='mensual'?'block':'none';
 }
 function nfTipoChange(){
-  var t=g('nfTipo');var ev=document.getElementById('nfFieldsEvento');var msg=document.getElementById('nfFieldsMensaje');
-  if(t==='recordatorio'||t==='reunion'){if(ev)ev.style.display='block';}else{if(ev)ev.style.display='none';}
+  var ev=document.getElementById('nfFieldsEvento');
+  if(ev)ev.style.display='block';
 }
 function renderDestList(){
   var el=document.getElementById('nfDestList');if(!el)return;
@@ -5156,20 +5157,38 @@ function usarWaContactosEnNotif(){
   var lbl=document.querySelector('#nfDestLabel');if(lbl)lbl.innerHTML='<i class="fas fa-users"></i> Destinatarios ('+_notifDest.length+')';
   toast(_notifDest.length+' contactos cargados en notificacion actual','ok');
 }
+function _leerCamposNotif(){
+  return {
+    tipo: g('nfTipo')||'general',
+    titulo: g('nfTitulo')||'',
+    mensaje: g('nfMensaje')||'',
+    evento: g('nfEvento')||'',
+    lugar: g('nfLugar')||'',
+    hora_evento: g('nfHoraEvento')||'',
+    fecha_evento: g('nfFechaEvento')||'',
+    cita_biblica: g('nfCita')||'',
+    info_extra: g('nfInfoExtra')||''
+  };
+}
 function testNotif(){
   var raw=(g('notifTestNum')||'').replace(/[^0-9]/g,'');
   if(raw.length===8)raw='502'+raw;
   if(!raw||raw.length<8){toast('Ingresa tus 8 digitos (ej: 58309505)','wa');return;}
+  var payload = _leerCamposNotif();
+  payload.numero = raw;
   loading(true);
-  call('enviarNotificacionPrueba',{numero:raw,mensaje:'Prueba de conexion - notificacion por WhatsApp',titulo:'Prueba de Conexion WhatsApp'},function(_,res){
+  call('enviarNotificacionPrueba',payload,function(_,res){
     loading(false);if(res&&res.ok){toast('Mensaje WhatsApp enviado a +502 '+raw.substring(3),'ok');loadNotifLog();}else toast('Error: '+(res&&res.msg||''),'er');
   });
 }
 function testNotifEmail(){
   var email=(g('notifTestEmail')||'').trim();
   if(!email||!/[^@\s]+@[^@\s]+\.[^@\s]+/.test(email)){toast('Ingresa un correo valido','wa');return;}
+  var payload = _leerCamposNotif();
+  payload.email = email;
+  payload.canal = 'correo';
   loading(true);
-  call('enviarNotificacionPrueba',{email:email,canal:'correo',mensaje:'Prueba de conexion - Notificacion por correo desde Iglesia Restauracion',titulo:'Prueba de Conexion Correo'},function(_,res){
+  call('enviarNotificacionPrueba',payload,function(_,res){
     loading(false);if(res&&res.ok){toast('Correo enviado a '+email,'ok');loadNotifLog();}else toast('Error: '+(res&&res.msg||''),'er');
   });
 }
@@ -5196,6 +5215,8 @@ function renderCuadre(el){
     <button class="btn btn-sm" style="background:#6b7280;color:#fff" onclick="nav(reporteModPrevio||'reportes')"><i class="fas fa-arrow-left"></i> Volver</button>
     <button class="btn btn-pr btn-sm" onclick="cargarCuadreDominical()"><i class="fas fa-sync"></i> Actualizar</button>
     <button class="btn btn-in btn-sm" onclick="exportXLS(_cuadreData||[],'Cuadre Dominical','cuadre')"><i class="fas fa-file-excel"></i> Excel</button>
+    <button class="btn btn-er btn-sm" onclick="generarCuadrePDF()"><i class="fas fa-file-pdf"></i> PDF</button>
+    <button class="btn btn-ol btn-sm" id="btnAgruparCuadre" onclick="toggleAgruparCuadre()"><i class="fas fa-layer-group"></i> Agrupar por Distrito</button>
   </div></div>
   <div class="card" style="background:linear-gradient(135deg,#1a3a5c,#2563a8);color:#fff;margin-bottom:14px">
     <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:16px">
@@ -5261,11 +5282,12 @@ function cargarCuadreDominical(){
     loading(false);
     if(!res||!res.ok){toast('Error al cargar cuadre','er');return;}
     _cuadreData=res.data||[];
+    _cuadreAgrupado=res.agrupado||[];
     document.getElementById('cuaTotal').textContent=res.totalLideres||0;
     document.getElementById('cuaEntregaron').textContent=res.entregaron||0;
     document.getElementById('cuaPendientes').textContent=res.pendientes||0;
     document.getElementById('cuaOfrenda').textContent='Q '+(res.ofrendaTotal||0).toFixed(2);
-    renderCuadreTable(_cuadreData);
+    if(_mostrandoAgrupado){renderCuadreAgrupado(_cuadreAgrupado);}else{renderCuadreTable(_cuadreData);}
   });
 }
 
@@ -5329,6 +5351,44 @@ function startAutoRefresh(){
       if(cfg&&cfg.ok){cfg._loaded=true;APP.config=Object.assign(APP.config||{},cfg);aplicarTema(cfg);}
     });
   },180000);
+}
+
+// ── CUADRE AGRUPADO + PDF ─────────────────────────────────
+var _cuadreAgrupado=null;
+var _mostrandoAgrupado=false;
+function toggleAgruparCuadre(){
+  _mostrandoAgrupado=!_mostrandoAgrupado;
+  var btn=document.getElementById('btnAgruparCuadre');
+  if(btn)btn.innerHTML=_mostrandoAgrupado?'<i class="fas fa-list"></i> Vista Normal':'<i class="fas fa-layer-group"></i> Agrupar por Distrito';
+  if(_mostrandoAgrupado){renderCuadreAgrupado(_cuadreAgrupado);}else{renderCuadreTable(_cuadreData);}
+}
+function renderCuadreAgrupado(agrupado){
+  var tb=document.getElementById('cuaTb');if(!tb)return;
+  if(!agrupado||!agrupado.length){tb.innerHTML='<tr><td colspan="8"><div class="empty-r"><p>Sin datos agrupados</p></div></td></tr>';return;}
+  var html='';
+  agrupado.forEach(function(dg){
+    html+='<tr style="background:#1a3a5c;color:#fff"><td colspan="8"><b style="font-size:14px">Distrito '+esc(dg.distrito)+'</b> &mdash; '+dg.entregaron+'/'+dg.totalLideres+' entregaron, '+dg.pendientes+' pendientes &mdash; Q'+fmtN(dg.ofrendaTotal)+'</td></tr>';
+    (dg.zonas||[]).forEach(function(zg){
+      html+='<tr style="background:#eef2f8;font-weight:700"><td colspan="2"></td><td colspan="6">Zona '+esc(zg.zona)+' | '+zg.entregaron+'/'+zg.totalLideres+' entregaron | Q'+fmtN(zg.ofrendaTotal)+'</td></tr>';
+      (zg.lideres||[]).forEach(function(r){
+        var tiene=r.tieneReporte;
+        var bg=tiene?'':'style="background:#fff5f5"';
+        var estado=tiene?(r.ofrendaRecibida?'<span class="bdg bg">Completado</span>':'<span class="bdg bo">Pend.Ofrenda</span>'):'<span class="bdg br">Sin Reporte</span>';
+        html+='<tr '+bg+'><td></td><td><span class="bdg bb">'+esc(r.codigo||'')+'</span></td><td><b>'+esc(r.nombre||'')+'</b></td><td>'+esc(r.pastorZona||'')+'</td><td>'+esc(r.supSector||'')+'</td><td>'+(tiene?'<i class="fas fa-check-circle" style="color:var(--ok)"></i> Si':'<i class="fas fa-times-circle" style="color:var(--err)"></i> No')+'</td><td>'+fmtQ(r.ofrendaTotal||0)+'</td><td>'+estado+'</td></tr>';
+      });
+    });
+  });
+  tb.innerHTML=html;
+}
+function generarCuadrePDF(){
+  var fecha=document.getElementById('cuaFecha')?.value||today();
+  loading(true);
+  call('getCuadreDominical',{fecha:fecha,generarPDF:true},function(_,res){
+    loading(false);
+    if(res&&res.pdfUrl){window.open(res.pdfUrl,'_blank');toast('PDF generado: '+res.pdfSerie,'ok');}
+    else if(res&&res.pdfError){toast('Error generando PDF: '+res.pdfError,'er');}
+    else{toast('No se pudo generar el PDF','er');}
+  });
 }
 
 // ── CARGAR CONFIG EN PANTALLA DE LOGIN ANTES DE INGRESAR ──
