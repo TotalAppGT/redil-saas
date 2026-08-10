@@ -32,6 +32,30 @@ def _htmlesc(s):
     """Escape HTML entities. Separada de esc() para evitar conflicto con variable local en dispatch()."""
     return str(s or "").replace("&","&amp;").replace("<","&lt;").replace(">","&gt;")
 
+def _get_church_name(db):
+    """Obtiene el nombre de la iglesia desde config, con fallback."""
+    try:
+        from app.models import Configuracion
+        c = db.query(Configuracion).filter(Configuracion.clave == "nombre").first()
+        if c and c.valor: return c.valor
+    except: pass
+    return "Iglesia Restauracion"
+
+def _get_system_url(db=None):
+    """Obtiene la URL del sistema desde config o env, con fallback."""
+    try:
+        import os
+        url = os.getenv("SISTEMA_URL", "")
+        if url: return url.rstrip("/")
+    except: pass
+    try:
+        if db:
+            from app.models import Configuracion
+            c = db.query(Configuracion).filter(Configuracion.clave == "system_url").first()
+            if c and c.valor: return c.valor.rstrip("/")
+    except: pass
+    return "https://redilrestauracion.totalappgt.online"
+
 def _formatear_whatsapp(msg, pdf_url=""):
     sep = " | "
     from datetime import datetime
@@ -124,7 +148,8 @@ def _construir_mensaje_notificacion(tipo, titulo, mensaje, evento, lugar, hora_e
     if info_extra and tipo not in ("reporte", "alerta", "ofrenda"):
         lineas.append(info_extra)
 
-    lineas.append("\U0001f517 Ingresa al sistema: redilrestauracion.totalappgt.online")
+    sys_url = _get_system_url()
+    lineas.append(f"\U0001f517 Ingresa al sistema: {sys_url}")
     return "\n".join(lineas)
 
 ALL_MENU_IDS = [
@@ -478,7 +503,20 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             "firebaseProjectId": configs.get("firebaseProjectId", os.getenv("FIREBASE_PROJECT_ID", "totalappgt-d15b9")),
             "firebaseAppId": configs.get("firebaseAppId", os.getenv("FIREBASE_APP_ID", "")), "whatsapp_soporte": configs.get("whatsapp_soporte","+502 5830-3182"), "nombre_soporte": configs.get("nombre_soporte","Total App GT - Daniel Martínez"), "titleMantenimiento": configs.get("titleMantenimiento","Sistema en Mantenimiento"), "msgMantenimiento": configs.get("msgMantenimiento","El sistema no está disponible en este momento."), "bot_habilitado": configs.get("bot_habilitado","True") == "True", "ai_provider": configs.get("ai_provider","auto"), "servicios_dinamicos": [], "cron_lunes": configs.get("cron_lunes","Lunes 6:30 PM"), "cron_jueves": configs.get("cron_jueves","Jueves 6:30 PM"), "cron_domTarde": configs.get("cron_domTarde","Domingo 10:30 AM"), "theme_colors": configs.get("theme_colors",""), "smtp_user": configs.get("smtp_user","totalappgt@gmail.com"), "smtp_password": configs.get("smtp_password", os.getenv("RESEND_API_KEY",""))}
 
-        if action == "saveConfig":
+        if action == "guardarPDF":
+            no_serie = payload.get("noSerie", "").strip()
+            pdf_b64 = payload.get("pdfBase64", "")
+            if not no_serie or not pdf_b64:
+                return {"ok": False, "msg": "noSerie y pdfBase64 requeridos"}
+            if pdf_b64.startswith("data:"):
+                pdf_b64 = pdf_b64.split(",",1)[-1]
+            gr = db.query(GeneradorReporte).filter(GeneradorReporte.no_serie == no_serie).first()
+            if not gr:
+                return {"ok": False, "msg": "Reporte no encontrado"}
+            gr.pdf_data = pdf_b64
+            gr.archivo_generado = f"/api/pdf/{no_serie}"
+            db.commit()
+            return {"ok": True, "msg": "PDF guardado"}
             for key, val in payload.items():
                 if key in ("token", "action"): continue
                 existing = db.query(Configuracion).filter(Configuracion.clave == key).first()
@@ -706,7 +744,7 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
         # ── FORM URL ──
         if action == "getFormUrl":
             c = db.query(Configuracion).filter(Configuracion.clave == "formUrlPublic").first()
-            url = c.valor if c else "https://redilrestauracion.totalappgt.online/formulario_digital.html"
+            url = c.valor if c else f"{_get_system_url()}/formulario_digital.html"
             return {"ok": True, "url": url}
 
         if action == "getFormHtml":
@@ -745,7 +783,13 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             lideres = db.query(Hermano).filter(Hermano.codigo_lead != None).all()
             reportes_q = db.query(Reporte)
             if fecha:
-                reportes_q = reportes_q.filter(Reporte.fecha == fecha)
+                try:
+                    d = datetime.strptime(fecha, "%Y-%m-%d").date()
+                    ini = d - timedelta(days=d.weekday())  # Lunes
+                    fin = ini + timedelta(days=6)  # Domingo
+                    reportes_q = reportes_q.filter(Reporte.fecha >= ini, Reporte.fecha <= fin)
+                except:
+                    reportes_q = reportes_q.filter(Reporte.fecha == fecha)
             reportes = reportes_q.all()
             codigos_reportados = set(r.codigo for r in reportes)
             data, total_lideres, entregaron, pendientes_c, ofrenda_total = [], 0, 0, 0, 0.0
@@ -1266,74 +1310,64 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                     db.commit()
                     try:
                         from fpdf import FPDF
-                        pdf = FPDF('L','mm','Letter'); pdf.set_auto_page_break(True,10)
-                        pdf.add_page(); pdf.set_margin(10)
-                        w=pdf.w-20; cx=10
-                        pdf.set_fill_color(26,58,92); pdf.rect(0,0,pdf.w,24,'F'); pdf.set_fill_color(18,48,78); pdf.rect(0,0,pdf.w,2,'F')
-                        pdf.set_text_color(255,255,255); pdf.set_font('Helvetica','B',16)
-                        pdf.set_xy(cx,4); pdf.cell(w*0.6,7,pdf_safe(sys_nom or'REDIL')[:35],0,0,'L')
-                        pdf.set_font('Helvetica','',8); pdf.set_text_color(185,205,230)
-                        pdf.set_xy(cx,13); pdf.cell(w*0.6,4,f'{pdf_safe(tipo)[:45]}  -  {rango_str}  -  {fecha_gen}',0,0,'L')
-                        bw,bh=58,14; bx=pdf.w-cx-bw; by=5
-                        pdf.set_fill_color(255,255,255); pdf.rect(bx,by,bw,bh,'F'); pdf.set_draw_color(26,58,92); pdf.set_line_width(0.3); pdf.rect(bx,by,bw,bh,'D')
-                        pdf.set_text_color(26,58,92); pdf.set_font('Helvetica','B',11)
-                        pdf.set_xy(bx,by+1); pdf.cell(bw,7,no_serie,0,0,'C')
-                        pdf.set_font('Helvetica','',7); pdf.set_text_color(100,115,135)
-                        pdf.set_xy(bx,by+8); pdf.cell(bw,4,f'{total_grupos} reportes',0,0,'C')
-                        colors=[(99,102,241),(16,185,129),(239,68,68),(249,115,22),(59,130,246),(139,92,246),(20,184,166),(245,158,11)]
-                        kpi_data=[('Grupos',str(total_grupos)),('Asistencia',str(total_asist)),('Ofrenda',pdf_safe(f'Q{total_ofrenda:,.2f}')),('Recibidas',f'{estado_pct}%'),('Pendientes',str(total_pendientes)),('Hermanos',str(total_hnos)),('Amigos',str(total_amigos)),('Ninos',str(total_ninos))]
-                        cw=(w-21)/4; ch=18; gap=7; y0=29
-                        for i,(lbl,val) in enumerate(kpi_data):
-                            x=cx+(i%4)*(cw+gap); y=y0+(i//4)*(ch+gap)
-                            pdf.set_fill_color(250,252,255); pdf.set_draw_color(220,228,240); pdf.rect(x,y,cw,ch,'DF')
-                            cr,cg,cb=colors[i]; pdf.set_fill_color(cr,cg,cb); pdf.set_draw_color(cr,cg,cb); pdf.rect(x+1,y+2,3,ch-4,'F')
-                            pdf.set_text_color(cr,cg,cb); pdf.set_font('Helvetica','B',12)
-                            pdf.set_xy(x+7,y+2); pdf.cell(cw-10,8,val,0,0,'L')
-                            pdf.set_font('Helvetica','',6.5); pdf.set_text_color(130,140,155)
-                            pdf.set_xy(x+7,y+11); pdf.cell(cw-10,4,lbl.upper(),0,0,'L')
-                        tbl_y=y0+2*ch+2*gap+8; rh=5.2
-                        pdf.set_fill_color(26,58,92); pdf.set_text_color(255,255,255); pdf.set_font('Helvetica','B',7)
-                        cols=[('Codigo',18),('Lider',48),('Fecha',20),('Dist-Zona',18),('AGF',14),('Ofrenda',20),('Hnos',12),('Amg',12),('Estado',28)]
-                        cw_list=[c[1] for c in cols]; ch_headers=[c[0] for c in cols]
-                        pdf.set_y(tbl_y)
-                        for ci,cwv in enumerate(cw_list): pdf.set_xy(sum(cw_list[:ci])+cx,tbl_y); pdf.cell(cwv,6,ch_headers[ci],0,0,'C',True)
-                        y=tbl_y+6; max_rows=int((190-y)/rh)
+                        pdf = FPDF('L','mm','Letter'); pdf.set_auto_page_break(True,8)
+                        pdf.add_page()
+                        pw=pdf.w; ph=pdf.h; mx=10; rw=pw-20
+                        pdf.set_fill_color(26,58,92); pdf.rect(0,0,pw,22,'F')
+                        pdf.set_fill_color(18,48,78); pdf.rect(0,0,pw,2,'F')
+                        pdf.set_text_color(255,255,255); pdf.set_font('Helvetica','B',15)
+                        pdf.set_xy(mx,3); pdf.cell(rw*0.55,7,pdf_safe(sys_nom or'Iglesia Restauracion')[:35],0,0,'L')
+                        pdf.set_font('Helvetica','',7.5); pdf.set_text_color(190,210,230)
+                        df2=datetime.now().strftime('%d/%m/%Y %I:%M %p')
+                        pdf.set_xy(mx,12); pdf.cell(rw*0.55,4,f'{pdf_safe(tipo)[:45]}  |  {rango_str}  |  {df2}',0,0,'L')
+                        bx2=pw-mx-56; by2=3
+                        pdf.set_fill_color(255,255,255); pdf.rect(bx2,by2,56,15,'F')
+                        pdf.set_draw_color(60,120,180); pdf.set_line_width(0.4); pdf.rect(bx2,by2,56,15,'D')
+                        pdf.set_text_color(26,58,92); pdf.set_font('Helvetica','B',10)
+                        pdf.set_xy(bx2,by2+1); pdf.cell(56,7,no_serie,0,0,'C')
+                        pdf.set_font('Helvetica','',6.5); pdf.set_text_color(100,120,140)
+                        pdf.set_xy(bx2,by2+8); pdf.cell(56,4,f'{total_grupos} rep | Q{total_ofrenda:,.0f}',0,0,'C')
+                        kpi=[(str(total_grupos),'REPORTES',(99,102,241)),(str(total_asist),'ASISTENCIA',(16,185,129)),(f'Q{total_ofrenda:,.0f}','OFRENDA',(239,68,68)),(f'{estado_pct}%','RECIBIDAS',(59,130,246)),(str(total_pendientes),'PENDIENTES',(249,115,22)),(str(total_hnos),'HNOS',(139,92,246)),(str(total_amigos),'AMIGOS',(20,184,166)),(str(total_ninos),'NINOS',(245,158,11))]
+                        kw=(rw-7*4)/8; kh=15; ky=26
+                        for i,(v,l,(cr,cg,cb)) in enumerate(kpi):
+                            kx=mx+i*(kw+4); pdf.set_fill_color(248,251,255); pdf.set_draw_color(215,225,240); pdf.rect(kx,ky,kw,kh,'DF')
+                            pdf.set_fill_color(cr,cg,cb); pdf.rect(kx,ky,2.5,kh,'F')
+                            pdf.set_text_color(cr,cg,cb); pdf.set_font('Helvetica','B',11); pdf.set_xy(kx+4,ky+1); pdf.cell(kw-6,7,v,0,0,'L')
+                            pdf.set_font('Helvetica','',5.5); pdf.set_text_color(120,130,145); pdf.set_xy(kx+4,ky+10); pdf.cell(kw-6,4,l,0,0,'L')
+                        cd=[('Codigo',15,'L'),('Lider',38,'L'),('Fecha',18,'C'),('D-Z',17,'C'),('AGF',12,'C'),('Ofrenda',18,'C'),('Hnos',10,'C'),('Amigos',10,'C'),('Ninos',10,'C'),('Estado',22,'C')]
+                        cw=[c[1]for c in cd]; scale=rw/sum(cw); cw=[w*scale for w in cw]; chd=[c[0]for c in cd]; ca=[c[2]for c in cd]
+                        ty=ky+kh+8; th=6; pdf.set_fill_color(26,58,92); pdf.set_text_color(255,255,255); pdf.set_font('Helvetica','B',7)
+                        xh=mx
+                        for ci in range(len(chd)): pdf.set_xy(xh,ty); pdf.cell(cw[ci],th,chd[ci],0,0,'C',True); xh+=cw[ci]
+                        ry=ty+th; rh=5; mr=int((ph-ry-14)/rh)
                         for ri,r in enumerate(reportes):
-                            if ri>0 and ri%max_rows==0:
-                                pdf.add_page(); y=12; pdf.set_fill_color(26,58,92)
-                                pdf.set_y(y)
-                                for ci2,cwv2 in enumerate(cw_list): pdf.set_xy(sum(cw_list[:ci2])+cx,y); pdf.cell(cwv2,6,ch_headers[ci2],0,0,'C',True)
-                                y+=6
-                            pdf.set_fill_color(252,254,255) if ri%2==0 else pdf.set_fill_color(246,249,253)
-                            pend=r.ofrenda_recibida in("Pendiente",""); of_v=float(r.ofrenda_total or 0)
-                            vals=[pdf_safe(r.codigo or'-')[:10],pdf_safe(r.lider or'-')[:28],str(r.fecha)[:10]if r.fecha else'-',f'D{pdf_safe(r.distrito or"?")} Z{pdf_safe(r.zona or"?")}',str(r.asistencia or 0),f'Q{of_v:,.2f}',str(r.hnos or 0),str(r.amigos or 0),'']
-                            for vi,cwv3 in enumerate(cw_list):
-                                xpos=sum(cw_list[:vi])+cx
-                                if vi==8:
-                                    if pend:
-                                        pdf.set_fill_color(254,238,238); pdf.set_draw_color(240,190,190); pdf.rect(xpos+1,y+0.5,cwv3-4,rh-1,'DF')
-                                        pdf.set_text_color(200,40,40)
-                                    else:
-                                        pdf.set_fill_color(234,252,240); pdf.set_draw_color(175,225,195); pdf.rect(xpos+1,y+0.5,cwv3-4,rh-1,'DF')
-                                        pdf.set_text_color(5,150,105)
-                                    pdf.set_font('Helvetica','B',6.5); pdf.set_xy(xpos,y)
-                                    pdf.cell(cwv3,rh,'Pendiente'if pend else'Recibida',0,0,'C')
-                                else:
-                                    pdf.set_text_color(50,60,75); pdf.set_xy(xpos,y); pdf.set_font('Helvetica','',7)
-                                    pdf.cell(cwv3,rh,vals[vi],0,0,'L'if vi<2 else'C',True)
-                            y+=rh
-                        pdf.set_y(y+4); pdf.set_draw_color(180,195,215); pdf.set_line_width(0.4)
-                        pdf.line(cx,pdf.get_y(),pdf.w-cx,pdf.get_y())
-                        pdf.set_font('Helvetica','B',7.5); pdf.set_text_color(26,58,92)
-                        pdf.set_xy(cx,pdf.get_y()+2); pdf.cell(w*0.5,5,f'{total_grupos} reportes  -  Q{total_ofrenda:,.2f}',0,0,'L')
-                        pdf.set_font('Helvetica','',6.5); pdf.set_text_color(140,150,165)
-                        pdf.set_xy(cx,pdf.get_y()+6); pdf.cell(w,5,'Daniel Martinez  -  Total App GT',0,0,'R')
-                        pdf_b64 = base64.b64encode(pdf.output()).decode()
+                            if ri>0 and ri%mr==0:
+                                pdf.add_page(); ry=10; xh=mx; pdf.set_fill_color(26,58,92); pdf.set_text_color(255,255,255); pdf.set_font('Helvetica','B',7)
+                                for ci in range(len(chd)): pdf.set_xy(xh,ry); pdf.cell(cw[ci],th,chd[ci],0,0,'C',True); xh+=cw[ci]
+                                ry+=th
+                            pdf.set_fill_color(253,254,255)if ri%2==0 else pdf.set_fill_color(246,250,254)
+                            pend=r.ofrenda_recibida in("Pendiente",""); ov=float(r.ofrenda_total or 0)
+                            vs=[pdf_safe(r.codigo or'-')[:12],pdf_safe(r.lider or'-')[:28],str(r.fecha)[:10]if r.fecha else'-','D'+pdf_safe(str(r.distrito or'?'))+' Z'+pdf_safe(str(r.zona or'?')),str(r.asistencia or 0),'Q'+f'{ov:,.0f}',str(r.hnos or 0),str(r.amigos or 0),str(r.ninos or 0),'']
+                            cv=mx
+                            for vi in range(len(cd)):
+                                if vi==9:
+                                    if pend: pdf.set_fill_color(254,238,238); pdf.set_draw_color(230,190,190); pdf.set_text_color(190,30,30); et='Pendiente'
+                                    else: pdf.set_fill_color(233,251,240); pdf.set_draw_color(170,220,195); pdf.set_text_color(5,140,95); et='Recibida'
+                                    pdf.set_font('Helvetica','B',6.5); pdf.rect(cv+1.5,ry,cw[vi]-3,rh,'DF'); pdf.set_xy(cv,ry); pdf.cell(cw[vi],rh,et,0,0,'C')
+                                else: pdf.set_text_color(45,55,70); pdf.set_font('Helvetica','',7); pdf.set_xy(cv,ry); pdf.cell(cw[vi],rh,vs[vi],0,0,ca[vi],True)
+                                cv+=cw[vi]
+                            ry+=rh
+                        pdf.set_y(ry+3); pdf.set_draw_color(180,195,215); pdf.set_line_width(0.4); pdf.line(mx,pdf.get_y(),pw-mx,pdf.get_y())
+                        pdf.set_font('Helvetica','B',7); pdf.set_text_color(26,58,92)
+                        pdf.set_xy(mx,pdf.get_y()+2); pdf.cell(rw*0.5,5,f'{total_grupos} reportes  |  Q{total_ofrenda:,.2f}  |  {df2}',0,0,'L')
+                        pdf.set_font('Helvetica','',6); pdf.set_text_color(130,140,155)
+                        sys_url2 = _get_system_url(db)
+                        pdf.set_xy(mx,pdf.get_y()+6); pdf.cell(rw,4,f'Sistema REDIL  |  {sys_url2}',0,0,'R')
+                        pdf_b64=base64.b64encode(pdf.output()).decode()
                         gr.pdf_data=pdf_b64; gr.archivo_generado=f"/api/pdf/{no_serie}"; db.commit()
                         result["pdfUrl"]=f"/api/pdf/{no_serie}"; result["pdfStatus"]="PDF listo"
                     except Exception as e:
-                        result["pdfError"]=str(e)
-                        print(f"PDF fallo ({no_serie}): {e}")
+                        result["pdfError"]=str(e); print(f"PDF fallo ({no_serie}): {e}")
                 except: pass
             return result
 
@@ -1354,7 +1388,8 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                 result = send_whatsapp_bulk(nums, msg) if len(nums) > 1 else send_whatsapp(nums[0], msg)
             else:
                 texto_wa = _formatear_whatsapp(msg)
-                results = [send_whatsapp_template(n, params=["Iglesia Restauracion", texto_wa]) for n in nums]
+                cn = _get_church_name(db)
+                results = [send_whatsapp_template(n, params=[cn, texto_wa]) for n in nums]
                 ok_count = sum(1 for r in results if r.get("ok"))
                 result = {"ok": ok_count > 0, "msg": f"Plantilla enviada a {ok_count}/{len(nums)} contactos"}
             return result
@@ -1375,7 +1410,8 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
             if forzar:
                 return send_whatsapp_bulk(numbers, msg, pdf_url if pdf_url else None)
             texto_wa = _formatear_whatsapp(msg, pdf_url)
-            results = [send_whatsapp_template(n, params=["Iglesia Restauracion", texto_wa]) for n in numbers]
+            cn = _get_church_name(db)
+            results = [send_whatsapp_template(n, params=[cn, texto_wa]) for n in numbers]
             ok_count = sum(1 for r in results if r.get("ok"))
             return {"ok": ok_count > 0, "msg": f"Plantilla enviada a {ok_count}/{len(numbers)} contactos"}
 
@@ -1491,11 +1527,12 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                 if not email or not msg_construido:
                     return {"ok": False, "msg": "Correo y mensaje requeridos"}
                 try:
+                    cn_email = _get_church_name(db)
                     lineas_html = "".join(f'<div style="margin-bottom:8px">{_htmlesc(l)}</div>' for l in msg_construido.split("\n"))
                     html = '<div style="font-family:sans-serif;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;max-width:520px">'
-                    html += '<div style="background:linear-gradient(135deg,#1a3a5c,#2563a8);color:#fff;padding:20px"><b style="font-size:18px">Iglesia Restauracion</b><div style="font-size:13px;opacity:.9">Restaurando vidas y familias</div></div>'
+                    html += '<div style="background:linear-gradient(135deg,#1a3a5c,#2563a8);color:#fff;padding:20px"><b style="font-size:18px">'+_htmlesc(cn_email)+'</b><div style="font-size:13px;opacity:.9">Restaurando vidas y familias</div></div>'
                     html += '<div style="padding:22px">'+lineas_html+'</div></div>'
-                    send_email([email], f"Iglesia Restauracion - {titulo or 'Notificacion'}", html)
+                    send_email([email], f"{cn_email} - {titulo or 'Notificacion'}", html)
                     estado = "enviado"
                     destino = email
                     res = {"ok": True, "msg": "Enviado", "canal": "correo"}
@@ -1511,7 +1548,10 @@ def dispatch(data: dict, db: Session = Depends(get_db)):
                 return res
             if not numero or not msg_construido:
                 return {"ok": False, "msg": "Numero y mensaje requeridos"}
-            resp = send_whatsapp_template(numero, params=["Iglesia Restauracion", msg_construido.replace("\n", "  |  ")])
+            # Template no soporta saltos de linea, usar separador
+            msg_wa_tpl = msg_construido.replace("\n", "  ·  ")
+            cn = _get_church_name(db)
+            resp = send_whatsapp_template(numero, params=[cn, msg_wa_tpl])
             db.add(NotificacionLog(
                 notificacion_id=0, titulo=titulo, destino=numero, canal="whatsapp",
                 wamid=resp.get("wamid", ""),
